@@ -1,4 +1,4 @@
-import java.lang.RuntimeException
+package com.link0
 
 enum class CRCType { HEADER, MESSAGE }
 

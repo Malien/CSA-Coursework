@@ -1,6 +1,8 @@
-import Packet.Companion.calculateHeaderCRC
-import Packet.Companion.calculateMessageCRC
+package com.link0
+
 import arrow.core.Either
+import com.link0.Packet.Companion.calculateHeaderCRC
+import com.link0.Packet.Companion.calculateMessageCRC
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -118,7 +120,13 @@ internal class PacketTest {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
             .map { Message.Decrypted(type = 1, userID = 2, message = it.toByteArray()) }
-            .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
+            .mapIndexed { idx, message ->
+                Packet(
+                    clientID = 3,
+                    message = message,
+                    packetID = idx.toLong()
+                )
+            }
             .map { it.data }
             .reduce { acc, data ->
                 ByteArray(acc.size + data.size).also {
@@ -140,7 +148,13 @@ internal class PacketTest {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
             .map { Message.Encrypted(type = 1, userID = 2, message = it.toByteArray(), key = key, cipher = cipher) }
-            .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
+            .mapIndexed { idx, message ->
+                Packet(
+                    clientID = 3,
+                    message = message,
+                    packetID = idx.toLong()
+                )
+            }
             .map { it.data }
             .reduce { acc, data ->
                 ByteArray(acc.size + data.size).also {

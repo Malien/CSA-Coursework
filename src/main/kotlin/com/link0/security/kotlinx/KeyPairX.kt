@@ -1,4 +1,4 @@
-package kotlinx.security
+package com.link0.security.kotlinx
 
 import java.security.KeyPair
 import java.security.PrivateKey

@@ -1,3 +1,5 @@
+package com.link0
+
 import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
@@ -22,7 +24,12 @@ data class Packet<M : Message>(
         clientID = clientID,
         packetID = packetID,
         messageLength = message.size,
-        headerCRC = calculateHeaderCRC(magic, clientID, packetID, message.size),
+        headerCRC = calculateHeaderCRC(
+            magic,
+            clientID,
+            packetID,
+            message.size
+        ),
         message = message,
         messageCRC = calculateMessageCRC(message)
     )
@@ -80,7 +87,9 @@ data class Packet<M : Message>(
                 .array()
 
         fun calculateHeaderCRC(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int) =
-            calculateCRC(Parameters.CRC16, headerData(magic, clientID, packetID, messageLength)).toShort()
+            calculateCRC(Parameters.CRC16,
+                headerData(magic, clientID, packetID, messageLength)
+            ).toShort()
 
         fun calculateMessageCRC(message: Message) =
             calculateCRC(Parameters.CRC16, message.data).toShort()
@@ -102,9 +111,18 @@ data class Packet<M : Message>(
             val messageLength = buffer.int
 
             val headerCRC = buffer.short
-            val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
+            val expectedHeaderCRC = calculateHeaderCRC(
+                magic,
+                clientID,
+                packetID,
+                messageLength
+            )
             if (expectedHeaderCRC != headerCRC)
-                throw PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC)
+                throw PacketException.CRCCheck(
+                    CRCType.HEADER,
+                    expectedHeaderCRC,
+                    headerCRC
+                )
 
             if (length < 18 + messageLength) throw PacketException.Length(18 + messageLength, length)
 
@@ -115,9 +133,21 @@ data class Packet<M : Message>(
             val messageCRC = buffer.short
             val expectedMessageCRC = calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
-                throw PacketException.CRCCheck(CRCType.MESSAGE, expectedMessageCRC, messageCRC)
+                throw PacketException.CRCCheck(
+                    CRCType.MESSAGE,
+                    expectedMessageCRC,
+                    messageCRC
+                )
 
-            return Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC)
+            return Packet(
+                magic,
+                clientID,
+                packetID,
+                messageLength,
+                headerCRC,
+                message,
+                messageCRC
+            )
         }
 
         inline fun <reified M : Message> from(stream: DataInputStream, seekMagic: Boolean = true): Packet<M> {
@@ -139,17 +169,38 @@ data class Packet<M : Message>(
 
             if (magic.toInt() != 0x13) throw PacketException.Magic(magic)
 
-            val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
+            val expectedHeaderCRC = calculateHeaderCRC(
+                magic,
+                clientID,
+                packetID,
+                messageLength
+            )
             if (expectedHeaderCRC != headerCRC)
-                throw PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC)
+                throw PacketException.CRCCheck(
+                    CRCType.HEADER,
+                    expectedHeaderCRC,
+                    headerCRC
+                )
 
             val message = Message.decode<M>(messageData)
 
             val expectedMessageCRC = calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
-                throw PacketException.CRCCheck(CRCType.MESSAGE, expectedMessageCRC, messageCRC)
+                throw PacketException.CRCCheck(
+                    CRCType.MESSAGE,
+                    expectedMessageCRC,
+                    messageCRC
+                )
 
-            return Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC)
+            return Packet(
+                magic,
+                clientID,
+                packetID,
+                messageLength,
+                headerCRC,
+                message,
+                messageCRC
+            )
         }
 
         inline fun <reified M : Message> sequenceFrom(

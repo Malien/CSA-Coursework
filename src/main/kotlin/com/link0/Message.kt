@@ -1,3 +1,5 @@
+package com.link0
+
 import java.nio.ByteBuffer
 import java.security.Key
 import javax.crypto.Cipher
@@ -41,7 +43,7 @@ sealed class Message(
         return result
     }
 
-    override fun toString() = "Message(type=$type, userID=$userID, message=${message.contentToString()})"
+    override fun toString() = "com.link0.Message(type=$type, userID=$userID, message=${message.contentToString()})"
 
     class Decrypted(
         type: Int,
@@ -66,7 +68,7 @@ sealed class Message(
             return true
         }
 
-        override fun toString() = "Message.Decrypted(type=$type, userID=$userID, message=${message.contentToString()})"
+        override fun toString() = "com.link0.Message.Decrypted(type=$type, userID=$userID, message=${message.contentToString()})"
 
     }
 
@@ -104,7 +106,7 @@ sealed class Message(
             return true
         }
 
-        override fun toString() = "Message.Encrypted(type=$type, userID=$userID, message=${message.contentToString()})"
+        override fun toString() = "com.link0.Message.Encrypted(type=$type, userID=$userID, message=${message.contentToString()})"
 
         companion object {
             fun encrypt(
@@ -131,8 +133,16 @@ sealed class Message(
             buffer.get(message)
 
             return when (M::class) {
-                Encrypted::class -> Encrypted(type, userID, message) as M
-                Decrypted::class -> Decrypted(type, userID, message) as M
+                Encrypted::class -> Encrypted(
+                    type,
+                    userID,
+                    message
+                ) as M
+                Decrypted::class -> Decrypted(
+                    type,
+                    userID,
+                    message
+                ) as M
                 else -> throw RuntimeException("Unknown message type")
             }
         }
