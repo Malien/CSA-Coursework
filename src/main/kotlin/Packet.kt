@@ -1,22 +1,23 @@
 import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
-import com.github.snksoft.crc.CRC.*
+import com.github.snksoft.crc.CRC.Parameters
+import com.github.snksoft.crc.CRC.calculateCRC
 import java.io.DataInputStream
 import java.io.EOFException
 import java.io.InputStream
 import java.nio.ByteBuffer
 
-data class Packet(
+data class Packet<M : Message>(
     val magic: Byte = MAGIC,
     val clientID: Byte,
     val packetID: Long = 0,
     val messageLength: Int,
     val headerCRC: Short,
-    val message: Message,
+    val message: M,
     val messageCRC: Short
 ) {
-    constructor(clientID: Byte, message: Message, magic: Byte = MAGIC, packetID: Long = 0) : this(
+    constructor(clientID: Byte, message: M, magic: Byte = MAGIC, packetID: Long = 0) : this(
         magic = magic,
         clientID = clientID,
         packetID = packetID,
@@ -43,7 +44,7 @@ data class Packet(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as Packet
+        other as Packet<*>
 
         if (magic != other.magic) return false
         if (clientID != other.clientID) return false
@@ -84,8 +85,11 @@ data class Packet(
         fun calculateMessageCRC(message: Message) =
             calculateCRC(Parameters.CRC16, message.data).toShort()
 
-        fun decode(bytes: ByteArray) = decode(bytes, 0, bytes.size)
-        fun decode(bytes: ByteArray, offset: Int, length: Int): Packet {
+        inline fun <reified M : Message> decode(
+            bytes: ByteArray,
+            offset: Int = 0,
+            length: Int = bytes.size
+        ): Packet<M> {
             if (length < 18) throw PacketException.Length(18, length)
 
             val buffer = ByteBuffer.wrap(bytes, offset, length)
@@ -106,7 +110,7 @@ data class Packet(
 
             val messageData = ByteArray(messageLength)
             buffer.get(messageData)
-            val message = Message.decode(messageData)
+            val message = Message.decode<M>(messageData)
 
             val messageCRC = buffer.short
             val expectedMessageCRC = calculateMessageCRC(message)
@@ -116,12 +120,14 @@ data class Packet(
             return Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC)
         }
 
-        fun from(stream: InputStream) = from(DataInputStream(stream))
-        fun from(stream: DataInputStream, seekMagic: Boolean = true): Packet {
+        inline fun <reified M : Message> from(stream: DataInputStream, seekMagic: Boolean = true): Packet<M> {
             val magic = if (seekMagic) {
-                while (stream.readByte() != MAGIC) {}
+                while (stream.readByte() != MAGIC) {
+                }
                 MAGIC
-            } else { stream.readByte() }
+            } else {
+                stream.readByte()
+            }
 
             val clientID = stream.readByte()
             val packetID = stream.readLong()
@@ -137,7 +143,7 @@ data class Packet(
             if (expectedHeaderCRC != headerCRC)
                 throw PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC)
 
-            val message = Message.decode(messageData)
+            val message = Message.decode<M>(messageData)
 
             val expectedMessageCRC = calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
@@ -146,11 +152,13 @@ data class Packet(
             return Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC)
         }
 
-        fun sequenceFrom(stream: InputStream): Sequence<Either<PacketException, Packet>> = sequence {
+        inline fun <reified M : Message> sequenceFrom(
+            stream: InputStream
+        ): Sequence<Either<PacketException, Packet<M>>> = sequence {
             val data = DataInputStream(stream)
             try {
-                while(true) yield(Right(from(data)))
-            } catch(e: PacketException) {
+                while (true) yield(Right(from(data)))
+            } catch (e: PacketException) {
                 yield(Left(e))
             } catch (e: EOFException) {
                 return@sequence
