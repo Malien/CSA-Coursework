@@ -1,7 +1,9 @@
 import Packet.Companion.calculateHeaderCRC
 import Packet.Companion.calculateMessageCRC
+import arrow.core.Either
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.*
+import java.io.ByteArrayInputStream
 
 internal class PacketTest {
 
@@ -84,6 +86,28 @@ internal class PacketTest {
             messageCRC = 0
         )
         assertThrows<PacketException.CRCCheck> { Packet.decode(packet.data) }
+    }
+
+    @Test
+    fun decodeMultiple() {
+        val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
+        val packets = messages
+            .map { Message(type = 1, userID = 2, message = it.toByteArray()) }
+            .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
+            .map { it.data }
+            .reduce { acc, data ->
+                ByteArray(acc.size + data.size).also {
+                    acc.copyInto(it)
+                    data.copyInto(it, destinationOffset = acc.size)
+                }
+            }
+        val stream = ByteArrayInputStream(packets)
+        for ((got, expected) in Packet.sequenceFrom(stream).zip(messages)) {
+            when(got) {
+                is Either.Right -> assertEquals(String(got.b.message.message), expected)
+                is Either.Left  -> fail(got.a)
+            }
+        }
     }
 
 }
