@@ -1,3 +1,6 @@
+import arrow.core.Either
+import arrow.core.extensions.either.applicativeError.handleError
+import kotlinx.arrow.core.handleWithThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -21,7 +24,7 @@ class MessageTest {
     @Test
     fun decode() {
         val message = Message.Decrypted(1, 2, "hello".toByteArray())
-        val decoded = Message.decode<Message.Decrypted>(message.data)
+        val decoded = Message.decode<Message.Decrypted>(message.data).handleWithThrow()
         assertEquals(message, decoded)
         assertEquals("hello", String(decoded.message))
     }
@@ -29,14 +32,14 @@ class MessageTest {
     @Test
     fun decodeSize0() {
         val data = ByteArray(0)
-        assertThrows<PacketException.Length> { Message.decode<Message.Decrypted>(data) }
+        assertThrows<PacketException.Length> { Message.decode<Message.Decrypted>(data).handleWithThrow() }
     }
 
     @Test
     fun encryptedDecode() {
         val message = Message.Decrypted(1, 2, "hello".toByteArray())
         val encryptedMessage = message.encrypted(key, cipher)
-        val encryptedDecodedMessage = Message.decode<Message.Encrypted>(encryptedMessage.data)
+        val encryptedDecodedMessage = Message.decode<Message.Encrypted>(encryptedMessage.data).handleWithThrow()
         val decodedMessage = encryptedDecodedMessage.decrypted(key, cipher)
 
         assertEquals(encryptedDecodedMessage, encryptedMessage)

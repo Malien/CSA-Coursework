@@ -1,6 +1,7 @@
 import Packet.Companion.calculateHeaderCRC
 import Packet.Companion.calculateMessageCRC
 import arrow.core.Either
+import kotlinx.arrow.core.handleWithThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -34,7 +35,7 @@ internal class PacketTest {
     @Test
     fun decode() {
         val packet = Packet(clientID = 4, message = message, packetID = 5)
-        val decoded = Packet.decode<Message.Decrypted>(packet.data)
+        val decoded = Packet.decode<Message.Decrypted>(packet.data).handleWithThrow()
         assertEquals(packet, decoded)
     }
 
@@ -42,7 +43,7 @@ internal class PacketTest {
     fun decodeEncrypted() {
         val encryptedMessage = message.encrypted(key, cipher)
         val packet = Packet(clientID = 4, message = encryptedMessage, packetID = 5)
-        val decoded = Packet.decode<Message.Encrypted>(packet.data)
+        val decoded = Packet.decode<Message.Encrypted>(packet.data).handleWithThrow()
         val decryptedMessage = decoded.message.decrypted(key, cipher)
         assertEquals(message, decryptedMessage)
     }
@@ -50,14 +51,14 @@ internal class PacketTest {
     @Test
     fun decode0Size() {
         val data = ByteArray(0)
-        assertThrows<PacketException.Length> { Packet.decode<Message.Decrypted>(data) }
+        assertThrows<PacketException.Length> { Packet.decode<Message.Decrypted>(data).handleWithThrow() }
     }
 
     @Test
     fun decodeIncomplete() {
         val packet = Packet(clientID = 4, message = message, packetID = 5)
         val decoded = packet.data.copyOfRange(0, packet.size - 2)
-        assertThrows<PacketException.Length> { Packet.decode<Message.Decrypted>(decoded) }
+        assertThrows<PacketException.Length> { Packet.decode<Message.Decrypted>(decoded).handleWithThrow() }
     }
 
     @Test
@@ -70,7 +71,7 @@ internal class PacketTest {
             message = message,
             messageCRC = calculateMessageCRC(message)
         )
-        assertThrows<PacketException> { Packet.decode<Message.Decrypted>(packet.data) }
+        assertThrows<PacketException> { Packet.decode<Message.Decrypted>(packet.data).handleWithThrow() }
     }
 
     @Test
@@ -84,7 +85,7 @@ internal class PacketTest {
             message = message,
             messageCRC = calculateMessageCRC(message)
         )
-        assertThrows<PacketException.Magic> { Packet.decode<Message.Decrypted>(packet.data) }
+        assertThrows<PacketException.Magic> { Packet.decode<Message.Decrypted>(packet.data).handleWithThrow() }
     }
 
     @Test
@@ -97,7 +98,7 @@ internal class PacketTest {
             message = message,
             messageCRC = calculateMessageCRC(message)
         )
-        assertThrows<PacketException.CRCCheck> { Packet.decode<Message.Decrypted>(packet.data) }
+        assertThrows<PacketException.CRCCheck> { Packet.decode<Message.Decrypted>(packet.data).handleWithThrow() }
     }
 
     @Test
@@ -110,7 +111,7 @@ internal class PacketTest {
             message = message,
             messageCRC = 0
         )
-        assertThrows<PacketException.CRCCheck> { Packet.decode<Message.Decrypted>(packet.data) }
+        assertThrows<PacketException.CRCCheck> { Packet.decode<Message.Decrypted>(packet.data).handleWithThrow() }
     }
 
     @Test

@@ -1,3 +1,6 @@
+import arrow.core.Either
+import arrow.core.Left
+import arrow.core.Right
 import java.nio.ByteBuffer
 import java.security.Key
 import javax.crypto.Cipher
@@ -121,8 +124,12 @@ sealed class Message(
     }
 
     companion object {
-        inline fun <reified M : Message> decode(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): M {
-            if (length < 8) throw PacketException.Length(8, length)
+        inline fun <reified M : Message> decode(
+            bytes: ByteArray,
+            offset: Int = 0,
+            length: Int = bytes.size
+        ): Either<PacketException, M> {
+            if (length < 8) return Left(PacketException.Length(8, length))
 
             val buffer = ByteBuffer.wrap(bytes, offset, length)
             val type = buffer.int
@@ -130,11 +137,13 @@ sealed class Message(
             val message = ByteArray(length - 8)
             buffer.get(message)
 
-            return when (M::class) {
-                Encrypted::class -> Encrypted(type, userID, message) as M
-                Decrypted::class -> Decrypted(type, userID, message) as M
-                else -> throw RuntimeException("Unknown message type")
-            }
+            return Right(
+                when (M::class) {
+                    Encrypted::class -> Encrypted(type, userID, message) as M
+                    Decrypted::class -> Decrypted(type, userID, message) as M
+                    else -> throw RuntimeException("Unknown message type")
+                }
+            )
         }
     }
 
