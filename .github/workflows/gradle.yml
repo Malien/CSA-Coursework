@@ -52,7 +52,7 @@ jobs:
         # A directory to store and save the cache
         path: build
         # An explicit key for restoring and saving the cache
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('*.gradle.kts') }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('*.gradle.kts', 'src/**/*') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
