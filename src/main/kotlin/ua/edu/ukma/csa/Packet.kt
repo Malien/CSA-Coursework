@@ -5,6 +5,7 @@ import arrow.core.Left
 import arrow.core.Right
 import com.github.snksoft.crc.CRC.Parameters
 import com.github.snksoft.crc.CRC.calculateCRC
+import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
 import java.io.DataInputStream
 import java.io.EOFException
 import java.io.InputStream
@@ -24,12 +25,7 @@ data class Packet<M : Message>(
         clientID = clientID,
         packetID = packetID,
         messageLength = message.size,
-        headerCRC = calculateHeaderCRC(
-            magic,
-            clientID,
-            packetID,
-            message.size
-        ),
+        headerCRC = calculateHeaderCRC(magic, clientID, packetID, message.size),
         message = message,
         messageCRC = calculateMessageCRC(message)
     )
@@ -87,7 +83,8 @@ data class Packet<M : Message>(
                 .array()
 
         fun calculateHeaderCRC(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int) =
-            calculateCRC(Parameters.CRC16,
+            calculateCRC(
+                Parameters.CRC16,
                 headerData(
                     magic,
                     clientID,
@@ -103,62 +100,41 @@ data class Packet<M : Message>(
             bytes: ByteArray,
             offset: Int = 0,
             length: Int = bytes.size
-        ): Packet<M> {
-            if (length < 18) throw PacketException.Length(18, length)
+        ): Either<PacketException, Packet<M>> {
+            if (length < 18) return Left(PacketException.Length(18, length))
 
             val buffer = ByteBuffer.wrap(bytes, offset, length)
 
             val magic = buffer.get()
-            if (magic.toInt() != 0x13) throw PacketException.Magic(magic)
+            if (magic.toInt() != 0x13) return Left(PacketException.Magic(magic))
 
             val clientID = buffer.get()
             val packetID = buffer.long
             val messageLength = buffer.int
 
             val headerCRC = buffer.short
-            val expectedHeaderCRC = calculateHeaderCRC(
-                magic,
-                clientID,
-                packetID,
-                messageLength
-            )
+            val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
             if (expectedHeaderCRC != headerCRC)
-                throw PacketException.CRCCheck(
-                    CRCType.HEADER,
-                    expectedHeaderCRC,
-                    headerCRC
-                )
+                return Left(PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC))
 
-            if (length < 18 + messageLength) throw PacketException.Length(
-                18 + messageLength,
-                length
-            )
+            if (length < 18 + messageLength) return Left(PacketException.Length(18 + messageLength, length))
 
             val messageData = ByteArray(messageLength)
             buffer.get(messageData)
-            val message = Message.decode<M>(messageData)
+            val message = Message.decode<M>(messageData).unwrap { return@decode it }
 
             val messageCRC = buffer.short
             val expectedMessageCRC = calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
-                throw PacketException.CRCCheck(
-                    CRCType.MESSAGE,
-                    expectedMessageCRC,
-                    messageCRC
-                )
+                return Left(PacketException.CRCCheck(CRCType.MESSAGE, expectedMessageCRC, messageCRC))
 
-            return Packet(
-                magic,
-                clientID,
-                packetID,
-                messageLength,
-                headerCRC,
-                message,
-                messageCRC
-            )
+            return Right(Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC))
         }
 
-        inline fun <reified M : Message> from(stream: DataInputStream, seekMagic: Boolean = true): Packet<M> {
+        inline fun <reified M : Message> from(
+            stream: DataInputStream,
+            seekMagic: Boolean = true
+        ): Either<PacketException, Packet<M>> {
             val magic = if (seekMagic) {
                 var currentByte = stream.readByte()
                 while (currentByte != MAGIC) currentByte = stream.readByte()
@@ -177,50 +153,27 @@ data class Packet<M : Message>(
 
             if (magic.toInt() != 0x13) throw PacketException.Magic(magic)
 
-            val expectedHeaderCRC = calculateHeaderCRC(
-                magic,
-                clientID,
-                packetID,
-                messageLength
-            )
+            val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
             if (expectedHeaderCRC != headerCRC)
-                throw PacketException.CRCCheck(
-                    CRCType.HEADER,
-                    expectedHeaderCRC,
-                    headerCRC
-                )
+                return Left(PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC))
 
-            val message = Message.decode<M>(messageData)
+            val message = Message.decode<M>(messageData).unwrap { return@from it }
 
             val expectedMessageCRC = calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
-                throw PacketException.CRCCheck(
-                    CRCType.MESSAGE,
-                    expectedMessageCRC,
-                    messageCRC
-                )
+                return Left(PacketException.CRCCheck(CRCType.MESSAGE, expectedMessageCRC, messageCRC))
 
-            return Packet(
-                magic,
-                clientID,
-                packetID,
-                messageLength,
-                headerCRC,
-                message,
-                messageCRC
-            )
+            return Right(Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC))
         }
 
         inline fun <reified M : Message> sequenceFrom(
             stream: InputStream
         ): Sequence<Either<PacketException, Packet<M>>> = sequence {
             val data = DataInputStream(stream)
-            try {
-                while (true) yield(Right(from(data)))
-            } catch (e: PacketException) {
-                yield(Left(e))
-            } catch (e: EOFException) {
-                return@sequence
+            while (true) {
+                try {
+                    while (true) yield(from(data))
+                } catch (e: EOFException) { return@sequence }
             }
         }
 

@@ -1,13 +1,11 @@
 package ua.edu.ukma.csa
 
-import arrow.core.Either
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.fail
 import ua.edu.ukma.csa.Packet.Companion.calculateHeaderCRC
 import ua.edu.ukma.csa.Packet.Companion.calculateMessageCRC
+import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
+import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import java.io.ByteArrayInputStream
 import java.security.Key
 import java.security.SecureRandom
@@ -30,54 +28,36 @@ internal class PacketTest {
 
     @BeforeEach
     fun setup() {
-        message = Message.Decrypted(
-            type = 1,
-            userID = 2,
-            message = "hello".toByteArray()
-        )
+        message = Message.Decrypted(type = 1, userID = 2, message = "hello".toByteArray())
     }
 
     @Test
     fun decode() {
         val packet = Packet(clientID = 4, message = message, packetID = 5)
-        val decoded =
-            Packet.decode<Message.Decrypted>(
-                packet.data
-            )
-        assertEquals(packet, decoded)
+        val decoded = Packet.decode<Message.Decrypted>(packet.data)
+        assertRight(packet, decoded)
     }
 
     @Test
     fun decodeEncrypted() {
         val encryptedMessage = message.encrypted(key, cipher)
         val packet = Packet(clientID = 4, message = encryptedMessage, packetID = 5)
-        val decoded =
-            Packet.decode<Message.Encrypted>(
-                packet.data
-            )
-        val decryptedMessage = decoded.message.decrypted(key, cipher)
-        assertEquals(message, decryptedMessage)
+        val decoded = Packet.decode<Message.Encrypted>(packet.data)
+        val decryptedMessage = decoded.map { it.message.decrypted(key, cipher) }
+        assertRight(message, decryptedMessage)
     }
 
     @Test
     fun decode0Size() {
         val data = ByteArray(0)
-        assertThrows<PacketException.Length> {
-            Packet.decode<Message.Decrypted>(
-                data
-            )
-        }
+        assertLeftType<PacketException.Length>(Packet.decode<Message.Decrypted>(data))
     }
 
     @Test
     fun decodeIncomplete() {
         val packet = Packet(clientID = 4, message = message, packetID = 5)
         val decoded = packet.data.copyOfRange(0, packet.size - 2)
-        assertThrows<PacketException.Length> {
-            Packet.decode<Message.Decrypted>(
-                decoded
-            )
-        }
+        assertLeftType<PacketException.Length>(Packet.decode<Message.Decrypted>(decoded))
     }
 
     @Test
@@ -90,11 +70,7 @@ internal class PacketTest {
             message = message,
             messageCRC = calculateMessageCRC(message)
         )
-        assertThrows<PacketException> {
-            Packet.decode<Message.Decrypted>(
-                packet.data
-            )
-        }
+        assertLeftType<PacketException>(Packet.decode<Message.Decrypted>(packet.data))
     }
 
     @Test
@@ -108,11 +84,7 @@ internal class PacketTest {
             message = message,
             messageCRC = calculateMessageCRC(message)
         )
-        assertThrows<PacketException.Magic> {
-            Packet.decode<Message.Decrypted>(
-                packet.data
-            )
-        }
+        assertLeftType<PacketException.Magic>(Packet.decode<Message.Decrypted>(packet.data))
     }
 
     @Test
@@ -125,11 +97,7 @@ internal class PacketTest {
             message = message,
             messageCRC = calculateMessageCRC(message)
         )
-        assertThrows<PacketException.CRCCheck> {
-            Packet.decode<Message.Decrypted>(
-                packet.data
-            )
-        }
+        assertLeftType<PacketException.CRCCheck>(Packet.decode<Message.Decrypted>(packet.data))
     }
 
     @Test
@@ -142,31 +110,15 @@ internal class PacketTest {
             message = message,
             messageCRC = 0
         )
-        assertThrows<PacketException.CRCCheck> {
-            Packet.decode<Message.Decrypted>(
-                packet.data
-            )
-        }
+        assertLeftType<PacketException.CRCCheck>(Packet.decode<Message.Decrypted>(packet.data))
     }
 
     @Test
     fun decodeMultiple() {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
-            .map {
-                Message.Decrypted(
-                    type = 1,
-                    userID = 2,
-                    message = it.toByteArray()
-                )
-            }
-            .mapIndexed { idx, message ->
-                Packet(
-                    clientID = 3,
-                    message = message,
-                    packetID = idx.toLong()
-                )
-            }
+            .map { Message.Decrypted( type = 1, userID = 2, message = it.toByteArray() ) }
+            .mapIndexed { idx, message -> Packet( clientID = 3, message = message, packetID = idx.toLong() ) }
             .map { it.data }
             .reduce { acc, data ->
                 ByteArray(acc.size + data.size).also {
@@ -175,13 +127,9 @@ internal class PacketTest {
                 }
             }
         val stream = ByteArrayInputStream(packets)
-        for ((got, expected) in Packet.sequenceFrom<Message.Decrypted>(
-            stream
-        ).zip(messages)) {
-            when(got) {
-                is Either.Right -> assertEquals(String(got.b.message.message), expected)
-                is Either.Left  -> fail(got.a)
-            }
+        val packetSequence = Packet.sequenceFrom<Message.Decrypted>(stream)
+        for ((got, expected) in packetSequence.zip(messages)) {
+            assertRight(expected, got.map { String(it.message.message) })
         }
     }
 
@@ -189,22 +137,8 @@ internal class PacketTest {
     fun decodeMultipleEncrypted() {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
-            .map {
-                Message.Encrypted(
-                    type = 1,
-                    userID = 2,
-                    message = it.toByteArray(),
-                    key = key,
-                    cipher = cipher
-                )
-            }
-            .mapIndexed { idx, message ->
-                Packet(
-                    clientID = 3,
-                    message = message,
-                    packetID = idx.toLong()
-                )
-            }
+            .map { Message.Encrypted( type = 1, userID = 2, message = it.toByteArray(), key = key, cipher = cipher ) }
+            .mapIndexed { idx, message -> Packet( clientID = 3, message = message, packetID = idx.toLong() ) }
             .map { it.data }
             .reduce { acc, data ->
                 ByteArray(acc.size + data.size).also {
@@ -213,13 +147,9 @@ internal class PacketTest {
                 }
             }
         val stream = ByteArrayInputStream(packets)
-        for ((got, expected) in Packet.sequenceFrom<Message.Encrypted>(
-            stream
-        ).zip(messages)) {
-            when(got) {
-                is Either.Right -> assertEquals(String(got.b.message.decrypted(key, cipher).message), expected)
-                is Either.Left  -> fail(got.a)
-            }
+        val packetSequence = Packet.sequenceFrom<Message.Encrypted>(stream)
+        for ((got, expected) in packetSequence.zip(messages)) {
+            assertRight(expected, got.map { String(it.message.decrypted(key, cipher).message) })
         }
     }
 

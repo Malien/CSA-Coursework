@@ -1,17 +1,33 @@
 package ua.edu.ukma.csa
 
+import arrow.core.Either
+import arrow.core.Left
+import arrow.core.Right
 import java.nio.ByteBuffer
 import java.security.Key
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 
+/**
+ * Class that contains domain specific data.
+ *
+ * Contains two variants: <pre>Message.Encrypted</pre> and <pre>Message.Decrypted</pre>.
+ * Encryption only affects <pre>message</pre> field.
+ * <pre>type</pre> and <pre>userID</pre> stays unencrypted no matter what.
+ */
 sealed class Message(
     val type: Int,
     val userID: Int,
     val message: ByteArray
 ) {
+    /**
+     * Size of binary representation of message (Length of byte-encoded message)
+     */
     val size get() = 8 + message.size
 
+    /**
+     * Byte-encoded message. Can be used to serialize message
+     */
     val data: ByteArray
         get() = ByteBuffer.allocate(size)
             .putInt(type)
@@ -45,12 +61,25 @@ sealed class Message(
 
     override fun toString() = "com.link0.Message(type=$type, userID=$userID, message=${message.contentToString()})"
 
+    /**
+     * Representation of unencrypted message.
+     *
+     * Contains <pre>encrypted</pre> method for producing encrypted version of said message.
+     */
     class Decrypted(
         type: Int,
         userID: Int,
         message: ByteArray
     ) : Message(type, userID, message) {
 
+        /**
+         * Encrypts message.
+         * @param encryptionKey key which will be used for encryption
+         * @param cipher specified to encrypt message
+         * @param iv initialization vector used to offset message when encrypting.
+         * Defaults to <pre>IvParameterSpec(ByteArray(16))</pre>
+         * @return encrypted message of type Message.Encrypted
+         */
         fun encrypted(
             encryptionKey: Key,
             cipher: Cipher,
@@ -68,16 +97,27 @@ sealed class Message(
             return true
         }
 
-        override fun toString() = "com.link0.Message.Decrypted(type=$type, userID=$userID, message=${message.contentToString()})"
+        override fun hashCode() = super.hashCode()
+
+        override fun toString() =
+            "com.link0.Message.Decrypted(type=$type, userID=$userID, message=${message.contentToString()})"
 
     }
 
+    /**
+     * Representation of encrypted message.
+     *
+     * Contains <pre>decrypted</pre> method for producing unencrypted version of said message.
+     */
     class Encrypted(
         type: Int,
         userID: Int,
         encryptedMessage: ByteArray
     ) : Message(type, userID, encryptedMessage) {
 
+        /**
+         * Constructs already encrypted message with key, cipher and iv specified.
+         */
         constructor(
             type: Int,
             userID: Int,
@@ -90,6 +130,14 @@ sealed class Message(
             encrypt(message, key, cipher, iv)
         )
 
+        /**
+         * Encrypts message.
+         * @param decryptionKey key which will be used for decryption
+         * @param cipher specified to decrypt message
+         * @param iv initialization vector used to offset message when decrypting.
+         * Defaults to <pre>IvParameterSpec(ByteArray(16))</pre>
+         * @return decrypted message of type Message.Decrypted
+         */
         fun decrypted(
             decryptionKey: Key,
             cipher: Cipher,
@@ -107,7 +155,10 @@ sealed class Message(
             return true
         }
 
-        override fun toString() = "com.link0.Message.Encrypted(type=$type, userID=$userID, message=${message.contentToString()})"
+        override fun hashCode() = super.hashCode()
+
+        override fun toString() =
+            "com.link0.Message.Encrypted(type=$type, userID=$userID, message=${message.contentToString()})"
 
         companion object {
             fun encrypt(
@@ -124,8 +175,16 @@ sealed class Message(
     }
 
     companion object {
-        inline fun <reified M : Message> decode(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): M {
-            if (length < 8) throw PacketException.Length(8, length)
+        /**
+         * Decodes message from an array of bytes, starting at offset and end is specified by length
+         *
+         */
+        inline fun <reified M : Message> decode(
+            bytes: ByteArray,
+            offset: Int = 0,
+            length: Int = bytes.size
+        ): Either<PacketException, M> {
+            if (length < 8) return (Left(PacketException.Length(8, length)))
 
             val buffer = ByteBuffer.wrap(bytes, offset, length)
             val type = buffer.int
@@ -133,19 +192,13 @@ sealed class Message(
             val message = ByteArray(length - 8)
             buffer.get(message)
 
-            return when (M::class) {
-                Encrypted::class -> Encrypted(
-                    type,
-                    userID,
-                    message
-                ) as M
-                Decrypted::class -> Decrypted(
-                    type,
-                    userID,
-                    message
-                ) as M
-                else -> throw RuntimeException("Unknown message type")
-            }
+            return Right(
+                when (M::class) {
+                    Encrypted::class -> Encrypted(type, userID, message) as M
+                    Decrypted::class -> Decrypted(type, userID, message) as M
+                    else -> throw RuntimeException("Unknown message type")
+                }
+            )
         }
     }
 
