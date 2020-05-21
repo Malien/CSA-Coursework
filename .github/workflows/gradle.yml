@@ -33,10 +33,18 @@ jobs:
       run: chmod +x gradlew
     - name: Cache
       uses: actions/cache@v1.2.0
+      env: 
+        cache-name: "cache-dot-gradle"
       with:
         # A directory to store and save the cache
         path: .gradle
         # An explicit key for restoring and saving the cache
-        key: gradle-cache
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('*.gradle.kts') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
     - name: Build with Gradle
       run: ./gradlew build
+    - name: Run tests
+      run: ./gradlew test
