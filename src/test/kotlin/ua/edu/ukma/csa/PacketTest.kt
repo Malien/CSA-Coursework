@@ -1,4 +1,4 @@
-package ua.edu.ukma.link0
+package ua.edu.ukma.csa
 
 import arrow.core.Either
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -6,8 +6,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.fail
-import ua.edu.ukma.link0.Packet.Companion.calculateHeaderCRC
-import ua.edu.ukma.link0.Packet.Companion.calculateMessageCRC
+import ua.edu.ukma.csa.Packet.Companion.calculateHeaderCRC
+import ua.edu.ukma.csa.Packet.Companion.calculateMessageCRC
 import java.io.ByteArrayInputStream
 import java.security.Key
 import java.security.SecureRandom

@@ -1,4 +1,4 @@
-package ua.edu.ukma.link0
+package ua.edu.ukma.csa
 
 import arrow.core.Either
 import arrow.core.Left
@@ -160,9 +160,9 @@ data class Packet<M : Message>(
 
         inline fun <reified M : Message> from(stream: DataInputStream, seekMagic: Boolean = true): Packet<M> {
             val magic = if (seekMagic) {
-                while (stream.readByte() != MAGIC) {
-                }
-                MAGIC
+                var currentByte = stream.readByte()
+                while (currentByte != MAGIC) currentByte = stream.readByte()
+                currentByte
             } else {
                 stream.readByte()
             }

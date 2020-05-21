@@ -1,4 +1,4 @@
-package ua.edu.ukma.link0
+package ua.edu.ukma.csa
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

@@ -1,4 +1,4 @@
-package ua.edu.ukma.link0.kotlinx.arrow.core
+package ua.edu.ukma.csa.kotlinx.arrow.core
 
 import arrow.core.Either
 
