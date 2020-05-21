@@ -1,4 +1,4 @@
-package com.link0
+package ua.edu.ukma.link0
 
 enum class CRCType { HEADER, MESSAGE }
 

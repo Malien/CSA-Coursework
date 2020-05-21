@@ -1,4 +1,4 @@
-package com.link0
+package ua.edu.ukma.link0
 
 import arrow.core.Either
 import arrow.core.Left
@@ -88,7 +88,12 @@ data class Packet<M : Message>(
 
         fun calculateHeaderCRC(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int) =
             calculateCRC(Parameters.CRC16,
-                headerData(magic, clientID, packetID, messageLength)
+                headerData(
+                    magic,
+                    clientID,
+                    packetID,
+                    messageLength
+                )
             ).toShort()
 
         fun calculateMessageCRC(message: Message) =
@@ -124,7 +129,10 @@ data class Packet<M : Message>(
                     headerCRC
                 )
 
-            if (length < 18 + messageLength) throw PacketException.Length(18 + messageLength, length)
+            if (length < 18 + messageLength) throw PacketException.Length(
+                18 + messageLength,
+                length
+            )
 
             val messageData = ByteArray(messageLength)
             buffer.get(messageData)

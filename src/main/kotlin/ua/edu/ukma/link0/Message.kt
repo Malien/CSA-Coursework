@@ -1,4 +1,4 @@
-package com.link0
+package ua.edu.ukma.link0
 
 import java.nio.ByteBuffer
 import java.security.Key
@@ -86,7 +86,8 @@ sealed class Message(
             cipher: Cipher,
             iv: IvParameterSpec = IvParameterSpec(ByteArray(16))
         ) : this(
-            type, userID, encrypt(message, key, cipher, iv)
+            type, userID,
+            encrypt(message, key, cipher, iv)
         )
 
         fun decrypted(

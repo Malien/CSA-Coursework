@@ -1,4 +1,4 @@
-package com.link0.security.kotlinx
+package ua.edu.ukma.link0.kotlinx.security
 
 import java.security.KeyPair
 import java.security.PrivateKey
