@@ -10,7 +10,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  build&test:
 
     runs-on: ubuntu-latest
 
@@ -31,5 +31,3 @@ jobs:
         key: gradle-cache
     - name: Build with Gradle
       run: ./gradlew build
-    - name: Run tests
-      run: ./gradlew test
