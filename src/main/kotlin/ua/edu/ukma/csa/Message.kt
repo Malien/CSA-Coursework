@@ -178,6 +178,14 @@ sealed class Message(
         /**
          * Decodes message from an array of bytes, starting at offset and end is specified by length
          *
+         *  Takes a reified generic type parameter M, which determines which type of message should be produced.
+         *  M has to be an subclass of Message.
+         *  For e.g. decode<Message.Encrypted> will produce an encrypted message,
+         *  where is decode<Message.Decrypted> will produce a decrypted one
+         *  @param bytes an array from which message supposed to be decoded
+         *  @param offset offset to an provided array. Default is 0
+         *  @param length length of data to be decoded from array. Default is bytes.size
+         *  @return Either an PacketException or a Message (type of which is specified as generic parameter M>
          */
         inline fun <reified M : Message> decode(
             bytes: ByteArray,
@@ -196,6 +204,7 @@ sealed class Message(
                 when (M::class) {
                     Encrypted::class -> Encrypted(type, userID, message) as M
                     Decrypted::class -> Decrypted(type, userID, message) as M
+                    Message::class -> Decrypted(type, userID, message) as M
                     else -> throw RuntimeException("Unknown message type")
                 }
             )

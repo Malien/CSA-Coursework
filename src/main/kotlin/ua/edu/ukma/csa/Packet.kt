@@ -11,6 +11,11 @@ import java.io.EOFException
 import java.io.InputStream
 import java.nio.ByteBuffer
 
+/**
+ * Class that represents a packet that is to be transmitted or received over the network
+ *
+ * @param M type of a message that packet contains within
+ */
 data class Packet<M : Message>(
     val magic: Byte = MAGIC,
     val clientID: Byte,
@@ -30,8 +35,14 @@ data class Packet<M : Message>(
         messageCRC = calculateMessageCRC(message)
     )
 
+    /**
+     * Size of an serialized packet
+     */
     val size = 18 + message.size
 
+    /**
+     * A byte array representing serialized packet.
+     */
     val data: ByteArray
         get() = ByteBuffer.allocate(size)
             .put(magic)
@@ -96,6 +107,17 @@ data class Packet<M : Message>(
         fun calculateMessageCRC(message: Message) =
             calculateCRC(Parameters.CRC16, message.data).toShort()
 
+        /**
+         * Decodes byte array into a packet object.
+         * Takes a reified generic type parameter M, which determines which type of message should be produced.
+         * M has to be an subclass of Message.
+         * For e.g. decode<Message.Encrypted> will produce a packet with an encrypted message inside,
+         * where is decode<Message.Decrypted> will produce a packet with a decrypted one
+         * @param bytes an byte array from which message is to be decoded
+         * @param offset an offset into an array, from where packet bytes begin
+         * @param length a length of serialized packet
+         * @return Either an PacketException in case of an error or Packet<M> in case of successful deserialization
+         */
         inline fun <reified M : Message> decode(
             bytes: ByteArray,
             offset: Int = 0,
@@ -131,6 +153,16 @@ data class Packet<M : Message>(
             return Right(Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC))
         }
 
+        /**
+         * Decodes a packet object from the stream.
+         * Takes a reified generic type parameter M, which determines which type of message should be produced.
+         * M has to be an subclass of Message.
+         * For e.g. from<Message.Encrypted> will produce a packet with an encrypted message inside,
+         * where is from<Message.Decrypted> will produce a packet with a decrypted one
+         * @param stream stream from which decode packet
+         * @param seekMagic whether or not to look for a magic byte before attempting to decode a packet
+         * @return Either an PacketException in case of an error or Packet<M> in case of successful deserialization
+         */
         inline fun <reified M : Message> from(
             stream: DataInputStream,
             seekMagic: Boolean = true
@@ -166,6 +198,11 @@ data class Packet<M : Message>(
             return Right(Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC))
         }
 
+        /**
+         * Converts a stream to a sequence of packets
+         * @param stream stream from which packets will be decoded
+         * @return a sequence of either a packet exception or a packet itself
+         */
         inline fun <reified M : Message> sequenceFrom(
             stream: InputStream
         ): Sequence<Either<PacketException, Packet<M>>> = sequence {
