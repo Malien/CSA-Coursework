@@ -1,4 +1,4 @@
-package ua.edu.ukma.csa
+package ua.edu.ukma.csa.network
 
 import arrow.core.Either
 import arrow.core.Left
@@ -202,9 +202,21 @@ sealed class Message(
 
             return Right(
                 when (M::class) {
-                    Encrypted::class -> Encrypted(type, userID, message) as M
-                    Decrypted::class -> Decrypted(type, userID, message) as M
-                    Message::class -> Decrypted(type, userID, message) as M
+                    Encrypted::class -> Encrypted(
+                        type,
+                        userID,
+                        message
+                    ) as M
+                    Decrypted::class -> Decrypted(
+                        type,
+                        userID,
+                        message
+                    ) as M
+                    Message::class -> Decrypted(
+                        type,
+                        userID,
+                        message
+                    ) as M
                     else -> throw RuntimeException("Unknown message type")
                 }
             )

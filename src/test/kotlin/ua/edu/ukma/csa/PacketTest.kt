@@ -2,10 +2,13 @@ package ua.edu.ukma.csa
 
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import ua.edu.ukma.csa.Packet.Companion.calculateHeaderCRC
-import ua.edu.ukma.csa.Packet.Companion.calculateMessageCRC
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
+import ua.edu.ukma.csa.network.Message
+import ua.edu.ukma.csa.network.Packet
+import ua.edu.ukma.csa.network.Packet.Companion.calculateHeaderCRC
+import ua.edu.ukma.csa.network.Packet.Companion.calculateMessageCRC
+import ua.edu.ukma.csa.network.PacketException
 import java.io.ByteArrayInputStream
 import java.security.Key
 import java.security.SecureRandom
@@ -117,8 +120,8 @@ internal class PacketTest {
     fun decodeMultiple() {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
-            .map { Message.Decrypted( type = 1, userID = 2, message = it.toByteArray() ) }
-            .mapIndexed { idx, message -> Packet( clientID = 3, message = message, packetID = idx.toLong() ) }
+            .map { Message.Decrypted(type = 1, userID = 2, message = it.toByteArray()) }
+            .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
             .map { it.data }
             .reduce { acc, data ->
                 ByteArray(acc.size + data.size).also {
@@ -137,8 +140,8 @@ internal class PacketTest {
     fun decodeMultipleEncrypted() {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
-            .map { Message.Encrypted( type = 1, userID = 2, message = it.toByteArray(), key = key, cipher = cipher ) }
-            .mapIndexed { idx, message -> Packet( clientID = 3, message = message, packetID = idx.toLong() ) }
+            .map { Message.Encrypted(type = 1, userID = 2, message = it.toByteArray(), key = key, cipher = cipher) }
+            .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
             .map { it.data }
             .reduce { acc, data ->
                 ByteArray(acc.size + data.size).also {
