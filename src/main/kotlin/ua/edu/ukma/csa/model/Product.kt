@@ -1,7 +1,6 @@
-package ua.edu.ukma.csa
+package ua.edu.ukma.csa.model
 
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 data class Product(
     val id: UUID = UUID.randomUUID(),
@@ -10,5 +9,3 @@ data class Product(
     var count: Int = 0,
     var price: Double
 )
-
-val model = ConcurrentHashMap<UUID, Product>(100)
