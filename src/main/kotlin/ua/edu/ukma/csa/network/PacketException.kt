@@ -31,6 +31,10 @@ sealed class PacketException(message: String) : RuntimeException(message) {
     data class Length(val expected: Int, val got: Int) :
         PacketException("Expected packet length of $expected, got $got")
 
+    /**
+     * Error that signifies an invalid message type field
+     * @param typeID identifier of received message type
+     */
     data class InvalidType(val typeID: Int) :
         PacketException("Invalid typeID $typeID")
 }

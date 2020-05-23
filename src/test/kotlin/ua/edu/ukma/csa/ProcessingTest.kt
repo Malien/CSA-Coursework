@@ -103,7 +103,7 @@ class ProcessingTest {
             }
         val inputStream = ByteArrayInputStream(bytes)
         val outputStream = ByteArrayOutputStream()
-        handleStream(inputStream, outputStream)
+        handleStream(inputStream, outputStream, key, cipher)
         val processingStream = ByteArrayInputStream(outputStream.toByteArray())
         for ((idx, packet) in sequenceFrom<Message.Encrypted>(processingStream).withIndex()) {
             assertRight(MessageType.OK, packet.map { it.message.decrypted(key, cipher).type })
