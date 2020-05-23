@@ -24,13 +24,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Queue in GitHub Build Check
+      uses: LouisBrunner/checks-action@v0.1.0
+      with:
+        token: ${{ secrets.TOKEN }}
+        name: Build
+        conclusion: neutral
+        status: queued
+
+    - name: Queue in GitHub Test Check
+      uses: LouisBrunner/checks-action@v0.1.0
+      with:
+        token: ${{ secrets.TOKEN }}
+        name: Test
+        conclusion: neutral
+        status: queued
+
     - uses: actions/checkout@v2
+
     - name: Set up JDK 1.8
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
+        
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+      
     - name: Cache .gradle
       uses: actions/cache@v1
       with:
@@ -38,14 +57,64 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
-    - name: Build with Gradle
-      run: ./gradlew build
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v2
+          
+    - name: Start GitHub Build Check
+      uses: LouisBrunner/checks-action@v0.1.0
       with:
-        # Artifact name
-        name: build-${{ hashFiles('**/*.kt*') }}
-        # A file, directory or wildcard pattern that describes what to upload
-        path: build
+        token: ${{ secrets.TOKEN }}
+        name: Build
+        conclusion: neutral
+        status: in_progress
+
+    - name: Build with Gradle
+      id: build
+      continue-on-error: true
+      run: ./gradlew build
+
+    - name: Successful GitHub Build Check
+      uses: LouisBrunner/checks-action@v0.1.0
+      if: ${{ steps.build.outcome == success }}
+      with:
+        token: ${{ secrets.TOKEN }}
+        name: Build
+        conclusion: success
+        status: completed
+        
+    - name: Failed GitHub Build Check
+      uses: LouisBrunner/checks-action@v0.1.0
+      if: ${{ steps.build.outcome == failure }}
+      with:
+        token: ${{ secrets.TOKEN }}
+        name: Build
+        conclusion: failure
+        status: completed   
+
+    - name: Start GitHub Test Check
+      uses: LouisBrunner/checks-action@v0.1.0
+      with:
+        token: ${{ secrets.TOKEN }}
+        name: Test
+        conclusion: neutral
+        status: in_progress
+
     - name: Run tests
-      run: ./gradlew test
+      id: test
+      run: ./gradlew test  
+              
+    - name: Successful GitHub Test Check
+      uses: LouisBrunner/checks-action@v0.1.0
+      if: ${{ steps.test.outcome == success }}
+      with:
+        token: ${{ secrets.TOKEN }}
+        name: Test
+        conclusion: success
+        status: completed
+
+    - name: Failed GitHub Test Check
+      uses: LouisBrunner/checks-action@v0.1.0
+      if: ${{ steps.test.outcome == failure }}
+      with:
+        token: ${{ secrets.TOKEN }}
+        name: Test
+        conclusion: failure
+        status: completed 
