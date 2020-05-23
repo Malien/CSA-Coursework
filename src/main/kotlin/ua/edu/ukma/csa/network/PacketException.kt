@@ -30,4 +30,7 @@ sealed class PacketException(message: String) : RuntimeException(message) {
      */
     data class Length(val expected: Int, val got: Int) :
         PacketException("Expected packet length of $expected, got $got")
+
+    data class InvalidType(val typeID: Int) :
+        PacketException("Invalid typeID $typeID")
 }

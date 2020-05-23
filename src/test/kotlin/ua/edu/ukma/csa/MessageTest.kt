@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.network.Message
+import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.PacketException
 import java.security.Key
 import java.security.SecureRandom
@@ -24,7 +25,7 @@ class MessageTest {
 
     @Test
     fun decode() {
-        val message = Message.Decrypted(1, 2, "hello".toByteArray())
+        val message = Message.Decrypted(MessageType.OK, 2, "hello".toByteArray())
         val decoded = Message.decode<Message.Decrypted>(message.data)
         assertRight(message, decoded)
         assertRight("hello", decoded.map { String(it.message) })
@@ -38,7 +39,7 @@ class MessageTest {
 
     @Test
     fun encryptedDecode() {
-        val message = Message.Decrypted(1, 2, "hello".toByteArray())
+        val message = Message.Decrypted(MessageType.OK, 2, "hello".toByteArray())
         val encryptedMessage = message.encrypted(key, cipher)
         val encryptedDecodedMessage = Message.decode<Message.Encrypted>(encryptedMessage.data)
         val decodedMessage = encryptedDecodedMessage.map { it.decrypted(key, cipher) }

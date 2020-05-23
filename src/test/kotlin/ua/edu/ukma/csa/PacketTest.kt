@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.network.Message
+import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.Packet
 import ua.edu.ukma.csa.network.Packet.Companion.calculateHeaderCRC
 import ua.edu.ukma.csa.network.Packet.Companion.calculateMessageCRC
@@ -31,7 +32,7 @@ internal class PacketTest {
 
     @BeforeEach
     fun setup() {
-        message = Message.Decrypted(type = 1, userID = 2, message = "hello".toByteArray())
+        message = Message.Decrypted(type = MessageType.OK, userID = 2, message = "hello".toByteArray())
     }
 
     @Test
@@ -120,7 +121,7 @@ internal class PacketTest {
     fun decodeMultiple() {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
-            .map { Message.Decrypted(type = 1, userID = 2, message = it.toByteArray()) }
+            .map { Message.Decrypted(type = MessageType.OK, userID = 2, message = it.toByteArray()) }
             .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
             .map { it.data }
             .reduce { acc, data ->
@@ -140,7 +141,15 @@ internal class PacketTest {
     fun decodeMultipleEncrypted() {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
-            .map { Message.Encrypted(type = 1, userID = 2, message = it.toByteArray(), key = key, cipher = cipher) }
+            .map {
+                Message.Encrypted(
+                    type = MessageType.OK,
+                    userID = 2,
+                    message = it.toByteArray(),
+                    key = key,
+                    cipher = cipher
+                )
+            }
             .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
             .map { it.data }
             .reduce { acc, data ->

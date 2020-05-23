@@ -3,6 +3,7 @@ package ua.edu.ukma.csa.network
 import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
+import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
 import java.nio.ByteBuffer
 import java.security.Key
 import javax.crypto.Cipher
@@ -16,9 +17,9 @@ import javax.crypto.spec.IvParameterSpec
  * <pre>type</pre> and <pre>userID</pre> stays unencrypted no matter what.
  */
 sealed class Message(
-    val type: Int,
+    val type: MessageType,
     val userID: Int,
-    val message: ByteArray
+    val message: ByteArray = ByteArray(0)
 ) {
     /**
      * Size of binary representation of message (Length of byte-encoded message)
@@ -30,7 +31,7 @@ sealed class Message(
      */
     val data: ByteArray
         get() = ByteBuffer.allocate(size)
-            .putInt(type)
+            .putInt(type.typeID)
             .putInt(userID)
             .put(message)
             .array()
@@ -53,9 +54,9 @@ sealed class Message(
     }
 
     override fun hashCode(): Int {
-        var result = type
+        var result = type.hashCode()
         result = 31 * result + userID
-        result = 31 * result + message.contentHashCode()
+        result = 31 * result + (message.contentHashCode())
         return result
     }
 
@@ -67,9 +68,9 @@ sealed class Message(
      * Contains <pre>encrypted</pre> method for producing encrypted version of said message.
      */
     class Decrypted(
-        type: Int,
+        type: MessageType,
         userID: Int,
-        message: ByteArray
+        message: ByteArray = ByteArray(0)
     ) : Message(type, userID, message) {
 
         /**
@@ -110,7 +111,7 @@ sealed class Message(
      * Contains <pre>decrypted</pre> method for producing unencrypted version of said message.
      */
     class Encrypted(
-        type: Int,
+        type: MessageType,
         userID: Int,
         encryptedMessage: ByteArray
     ) : Message(type, userID, encryptedMessage) {
@@ -119,9 +120,9 @@ sealed class Message(
          * Constructs already encrypted message with key, cipher and iv specified.
          */
         constructor(
-            type: Int,
+            type: MessageType,
             userID: Int,
-            message: ByteArray,
+            message: ByteArray = ByteArray(0),
             key: Key,
             cipher: Cipher,
             iv: IvParameterSpec = IvParameterSpec(ByteArray(16))
@@ -195,28 +196,19 @@ sealed class Message(
             if (length < 8) return (Left(PacketException.Length(8, length)))
 
             val buffer = ByteBuffer.wrap(bytes, offset, length)
-            val type = buffer.int
+            val typeID = buffer.int
+            val type = MessageType.fromID(typeID).unwrap {
+                return@decode Left(PacketException.InvalidType(typeID))
+            }
             val userID = buffer.int
             val message = ByteArray(length - 8)
             buffer.get(message)
 
             return Right(
                 when (M::class) {
-                    Encrypted::class -> Encrypted(
-                        type,
-                        userID,
-                        message
-                    ) as M
-                    Decrypted::class -> Decrypted(
-                        type,
-                        userID,
-                        message
-                    ) as M
-                    Message::class -> Decrypted(
-                        type,
-                        userID,
-                        message
-                    ) as M
+                    Encrypted::class -> Encrypted(type, userID, message) as M
+                    Decrypted::class -> Decrypted(type, userID, message) as M
+                    Message::class -> Decrypted(type, userID, message) as M
                     else -> throw RuntimeException("Unknown message type")
                 }
             )
