@@ -99,13 +99,7 @@ data class Packet<M : Message>(
 
         fun calculateHeaderCRC(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int) =
             calculateCRC(
-                Parameters.CRC16,
-                headerData(
-                    magic,
-                    clientID,
-                    packetID,
-                    messageLength
-                )
+                Parameters.CRC16, headerData(magic, clientID, packetID, messageLength)
             ).toShort()
 
         fun calculateMessageCRC(message: Message) =
@@ -139,55 +133,22 @@ data class Packet<M : Message>(
             val messageLength = buffer.int
 
             val headerCRC = buffer.short
-            val expectedHeaderCRC = calculateHeaderCRC(
-                magic,
-                clientID,
-                packetID,
-                messageLength
-            )
+            val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
             if (expectedHeaderCRC != headerCRC)
-                return Left(
-                    PacketException.CRCCheck(
-                        CRCType.HEADER,
-                        expectedHeaderCRC,
-                        headerCRC
-                    )
-                )
+                return Left(PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC))
 
-            if (length < 18 + messageLength) return Left(
-                PacketException.Length(
-                    18 + messageLength,
-                    length
-                )
-            )
+            if (length < 18 + messageLength) return Left(PacketException.Length(18 + messageLength, length))
 
             val messageData = ByteArray(messageLength)
             buffer.get(messageData)
             val message = Message.decode<M>(messageData).unwrap { return@decode it }
 
             val messageCRC = buffer.short
-            val expectedMessageCRC =
-                calculateMessageCRC(message)
+            val expectedMessageCRC = calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
-                return Left(
-                    PacketException.CRCCheck(
-                        CRCType.MESSAGE,
-                        expectedMessageCRC,
-                        messageCRC
-                    )
-                )
+                return Left(PacketException.CRCCheck(CRCType.MESSAGE, expectedMessageCRC, messageCRC))
 
-            return Right(
-                Packet(
-                    magic,
-                    clientID,
-                    packetID,
-                    messageLength,
-                    headerCRC,
-                    message,
-                    messageCRC
-                )
-            )
+            return Right(Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC))
         }
 
         /**
@@ -222,44 +183,19 @@ data class Packet<M : Message>(
 
             if (magic.toInt() != 0x13) throw PacketException.Magic(magic)
 
-            val expectedHeaderCRC = calculateHeaderCRC(
-                magic,
-                clientID,
-                packetID,
-                messageLength
-            )
+            val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
             if (expectedHeaderCRC != headerCRC)
-                return Left(
-                    PacketException.CRCCheck(
-                        CRCType.HEADER,
-                        expectedHeaderCRC,
-                        headerCRC
-                    )
-                )
+                return Left(PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC))
 
             val message = Message.decode<M>(messageData).unwrap { return@from it }
 
             val expectedMessageCRC =
                 calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
-                return Left(
-                    PacketException.CRCCheck(
-                        CRCType.MESSAGE,
-                        expectedMessageCRC,
-                        messageCRC
-                    )
-                )
+                return Left(PacketException.CRCCheck(CRCType.MESSAGE, expectedMessageCRC, messageCRC))
 
             return Right(
-                Packet(
-                    magic,
-                    clientID,
-                    packetID,
-                    messageLength,
-                    headerCRC,
-                    message,
-                    messageCRC
-                )
+                Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC)
             )
         }
 
@@ -275,7 +211,9 @@ data class Packet<M : Message>(
             while (true) {
                 try {
                     while (true) yield(from(data))
-                } catch (e: EOFException) { return@sequence }
+                } catch (e: EOFException) {
+                    return@sequence
+                }
             }
         }
 
