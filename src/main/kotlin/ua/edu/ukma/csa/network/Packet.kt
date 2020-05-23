@@ -25,13 +25,12 @@ data class Packet<M : Message>(
     val message: M,
     val messageCRC: Short
 ) {
-    constructor(clientID: Byte, message: M, magic: Byte = MAGIC, packetID: Long = 0) : this(
-        magic = magic,
+    constructor(clientID: Byte, message: M, packetID: Long = 0) : this(
         clientID = clientID,
         packetID = packetID,
         messageLength = message.size,
         headerCRC = calculateHeaderCRC(
-            magic,
+            MAGIC,
             clientID,
             packetID,
             message.size
