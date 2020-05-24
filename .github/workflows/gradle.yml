@@ -51,7 +51,7 @@ jobs:
     - name: Run tests
       run: ./gradlew test
     - name: Junit Report to Annotations
-      uses: ashley-taylor/junit-report-annotations-action@v1.0
+      uses: meisterplan/junit-report-annotations-action@v1.0
       with:
         # github token
         access-token: ${{ secrets.GITHUB_TOKEN }}
