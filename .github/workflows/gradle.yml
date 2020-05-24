@@ -19,8 +19,7 @@ jobs:
       - name: Validate gradlew
         uses: actions/checkout@v2
     
-  build:
-    name: build
+  test-server:
 
     runs-on: ubuntu-latest
 
