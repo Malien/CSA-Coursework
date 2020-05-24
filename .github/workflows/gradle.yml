@@ -54,7 +54,7 @@ jobs:
       uses: meisterplan/junit-report-annotations-action@master
       with:
         # github token
-        access-token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         # glob to junit xml files
         path: build/test-results/test/*.xml
         # max number of failed tests to include
