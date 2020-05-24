@@ -11,6 +11,7 @@ on:
 
 jobs:
   validate_gradlew:
+    name: Validate Gradlew integrity
     
     runs-on: ubuntu-latest
     
@@ -19,7 +20,8 @@ jobs:
       - name: Validate gradlew
         uses: actions/checkout@v2
     
-  test-server:
+  build:
+    name: Build and Test
 
     runs-on: ubuntu-latest
 
@@ -52,11 +54,6 @@ jobs:
     - name: Junit Report to Annotations
       uses: meisterplan/junit-report-annotations-action@master
       with:
-        # github token
         githubToken: ${{ secrets.GITHUB_TOKEN }}
-        # glob to junit xml files
-        path: build/test-results/test/*.xml
-        # max number of failed tests to include
         numFailures: 100
-        # path to test source
-        testSrcPath: src/test/kotlin/
+        jobName: Build and Test
