@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v2
     
   build_and_test:
+    name: Build and Test
 
     runs-on: ubuntu-latest
 
@@ -40,12 +41,23 @@ jobs:
           ${{ runner.os }}-gradle-
     - name: Build with Gradle
       run: ./gradlew build
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        # Artifact name
-        name: build-${{ hashFiles('**/*.kt*') }}
-        # A file, directory or wildcard pattern that describes what to upload
-        path: build
+#     - name: Upload a Build Artifact
+#       uses: actions/upload-artifact@v2
+#       with:
+#         # Artifact name
+#         name: build-${{ hashFiles('**/*.kt*') }}
+#         # A file, directory or wildcard pattern that describes what to upload
+#         path: build
     - name: Run tests
       run: ./gradlew test
+    - name: Junit Report to Annotations
+      uses: ashley-taylor/junit-report-annotations-action@v1.0
+      with:
+        # github token
+        access-token: ${{ secrets.GITHUB_TOKEN }}
+        # glob to junit xml files
+        path: build/test-results/test/*.xml
+        # max number of failed tests to include
+        numFailures: 100
+        # path to test source
+        testSrcPath: src/test/kotlin/
