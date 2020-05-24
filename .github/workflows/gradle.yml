@@ -43,6 +43,7 @@ jobs:
     - name: Run Build
       run: ./gradlew build -x test
     - name: Run Tests
+      id: test
       run: ./gradlew test
       continue-on-error: true
     - name: Junit Report to Annotations
@@ -52,3 +53,6 @@ jobs:
         githubToken: ${{ secrets.GITHUB_TOKEN }}
         maxFailures: 100
         jobName: Build and Test
+    - name: Fail if tests failed
+      if: ${{ steps.test.outcome == 'failure' }}
+      uses: cutenode/action-always-fail@v1.0.0
