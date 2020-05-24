@@ -58,34 +58,6 @@ data class Packet<M : Message>(
             .putShort(messageCRC)
             .array()
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as Packet<*>
-
-        if (magic != other.magic) return false
-        if (clientID != other.clientID) return false
-        if (packetID != other.packetID) return false
-        if (messageLength != other.messageLength) return false
-        if (headerCRC != other.headerCRC) return false
-        if (message != other.message) return false
-        if (messageCRC != other.messageCRC) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = magic.toInt()
-        result = 31 * result + clientID
-        result = 31 * result + packetID.hashCode()
-        result = 31 * result + messageLength
-        result = 31 * result + headerCRC
-        result = 31 * result + message.hashCode()
-        result = 31 * result + messageCRC
-        return result
-    }
-
     companion object {
         const val MAGIC: Byte = 0x13
 
