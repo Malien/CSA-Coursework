@@ -11,6 +11,7 @@ on:
 
 jobs:
   validate_gradlew:
+    name: Validate Gradlew integrity
     
     runs-on: ubuntu-latest
     
@@ -19,7 +20,8 @@ jobs:
       - name: Validate gradlew
         uses: actions/checkout@v2
     
-  build_and_test:
+  build:
+    name: Build and Test
 
     runs-on: ubuntu-latest
 
@@ -38,14 +40,20 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
-    - name: Build with Gradle
+    - name: build
       run: ./gradlew build
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        # Artifact name
-        name: build-${{ hashFiles('**/*.kt*') }}
-        # A file, directory or wildcard pattern that describes what to upload
-        path: build
+#     - name: Upload a Build Artifact
+#       uses: actions/upload-artifact@v2
+#       with:
+#         # Artifact name
+#         name: build-${{ hashFiles('**/*.kt*') }}
+#         # A file, directory or wildcard pattern that describes what to upload
+#         path: build
     - name: Run tests
       run: ./gradlew test
+    - name: Junit Report to Annotations
+      uses: meisterplan/junit-report-annotations-action@master
+      with:
+        githubToken: ${{ secrets.GITHUB_TOKEN }}
+        numFailures: 100
+        jobName: Build and Test
