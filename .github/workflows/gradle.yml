@@ -40,8 +40,8 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
-    - name: build
-      run: ./gradlew build
+    - name: Run Build
+      run: ./gradlew build -x test
 #     - name: Upload a Build Artifact
 #       uses: actions/upload-artifact@v2
 #       with:
@@ -49,11 +49,12 @@ jobs:
 #         name: build-${{ hashFiles('**/*.kt*') }}
 #         # A file, directory or wildcard pattern that describes what to upload
 #         path: build
-    - name: Run tests
+    - name: Run Tests
       run: ./gradlew test
+      continue-on-error: true
     - name: Junit Report to Annotations
       uses: meisterplan/junit-report-annotations-action@master
       with:
         githubToken: ${{ secrets.GITHUB_TOKEN }}
-        numFailures: 100
+        maxFailures: 100
         jobName: Build and Test
