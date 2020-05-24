@@ -27,7 +27,7 @@ class MessageTest {
         val message = Message.Decrypted(1, 2, "hello".toByteArray())
         val decoded = Message.decode<Message.Decrypted>(message.data)
         assertRight(message, decoded)
-        assertRight("hello", decoded.map { String(it.message) })
+        assertRight("hellooooo", decoded.map { String(it.message) })
     }
 
     @Test
