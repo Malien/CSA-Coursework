@@ -113,7 +113,7 @@ internal class PacketTest {
             message = message,
             messageCRC = 0
         )
-        assertLeftType<PacketException.CRCCheck>(Packet.decode<Message.Decrypted>(packet.data))
+        assertLeftType<PacketException.Length>(Packet.decode<Message.Decrypted>(packet.data))
     }
 
     @Test
