@@ -42,19 +42,13 @@ jobs:
           ${{ runner.os }}-gradle-
     - name: Run Build
       run: ./gradlew build -x test
-#     - name: Upload a Build Artifact
-#       uses: actions/upload-artifact@v2
-#       with:
-#         # Artifact name
-#         name: build-${{ hashFiles('**/*.kt*') }}
-#         # A file, directory or wildcard pattern that describes what to upload
-#         path: build
     - name: Run Tests
       run: ./gradlew test
       continue-on-error: true
     - name: Junit Report to Annotations
       uses: meisterplan/junit-report-annotations-action@master
       with:
+        projectPath: .
         githubToken: ${{ secrets.GITHUB_TOKEN }}
         maxFailures: 100
         jobName: Build and Test
