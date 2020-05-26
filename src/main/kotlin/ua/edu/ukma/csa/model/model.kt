@@ -7,6 +7,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 val model = ConcurrentHashMap<UUID, Product>(100)
+val groups = ConcurrentHashMap<String, HashSet<Product>>(100)
 val setGroups = mutableSetOf<String>()
 
 // Here you can write your processing methods, for e.g.
@@ -27,8 +28,8 @@ fun getQuantity(id: UUID): Either<ModelException, Int> {
 fun deleteQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Unit> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
-        if (quantity > 0 && quantity <= model[id]!!.count)
-            model[id]!!.count -= quantity
+        if (quantity > 0 && quantity <= product.count)
+            product.count -= quantity
         else return Left(ModelException.ProductCanNotHaveThisCount(id, quantity))
     }
     return Right(Unit)
@@ -38,36 +39,41 @@ fun addQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Unit> 
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
         if (quantity > 0)
-            model[id]!!.count += quantity
+            product.count += quantity
         else return Left(ModelException.ProductCanNotHaveThisCount(id, quantity))
     }
     return Right(Unit)
 }
 
-fun addGroup(id: UUID, newGroup: String): Either<ModelException, Unit> {
-    val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
-    synchronized(product) {
-        setGroups.add(newGroup)
+fun addGroup(newGroup: String): Either<ModelException, Unit> {
+    val existingGroup = groups[newGroup]
+    if (existingGroup != null) {
+        return Left(ModelException.GroupAlreadyExists(newGroup))
     }
+    groups[newGroup] = HashSet()
     return Right(Unit)
 }
 
 fun addGroupNameToProduct(id: UUID, groupName: String): Either<ModelException, Unit> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
+    val group = groups[groupName] ?: return Left(ModelException.GroupDoesNotExist(groupName))
     synchronized(product) {
-        if (!setGroups.contains(groupName)) {
-            product.copy(groups = groupName)
-        } else return Left(ModelException.GroupAlreadyExists(id, groupName))
+        synchronized(group) {
+            return if (product in group) {
+                Left(ModelException.ProductAlreadyInGroup(product, groupName))
+            } else {
+                group.add(product)
+                Right(Unit)
+            }
+        }
     }
-    return Right(Unit)
 }
 
 fun setPrice(id: UUID, price: Double): Either<ModelException, Unit> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
         if (price > 0) {
-            var newPrice = price
-            product!!.price = newPrice
+            product.price = price
         } else return Left(ModelException.ProductCanNotHaveThisPrice(id, price))
         return Right(Unit)
     }
