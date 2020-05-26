@@ -11,13 +11,13 @@ val groups = ConcurrentHashMap<String, HashSet<Product>>(100)
 
 // TODO: JavaDoc this stuff
 
-fun addProduct(product: Product): Either<ModelException, Unit> {
+fun addProduct(product: Product): Either<ModelException.ProductAlreadyExists, Unit> {
     if (model.containsKey(product.id)) return Left(ModelException.ProductAlreadyExists(product.id))
     model[product.id] = product
     return Right(Unit)
 }
 
-fun getQuantity(id: UUID): Either<ModelException, Int> {
+fun getQuantity(id: UUID): Either<ModelException.ProductDoesNotExist, Int> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
         return Right(product.count)
@@ -44,7 +44,7 @@ fun addQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Int> {
     }
 }
 
-fun addGroup(newGroup: String): Either<ModelException, Unit> {
+fun addGroup(newGroup: String): Either<ModelException.GroupAlreadyExists, Unit> {
     val existingGroup = groups[newGroup]
     if (existingGroup != null) {
         return Left(ModelException.GroupAlreadyExists(newGroup))
