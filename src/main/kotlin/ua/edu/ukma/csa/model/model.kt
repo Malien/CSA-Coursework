@@ -8,9 +8,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 val model = ConcurrentHashMap<UUID, Product>(100)
 val groups = ConcurrentHashMap<String, HashSet<Product>>(100)
-val setGroups = mutableSetOf<String>()
 
-// Here you can write your processing methods, for e.g.
+// TODO: JavaDoc this stuff
 
 fun addProduct(product: Product): Either<ModelException, Unit> {
     if (model.containsKey(product.id)) return Left(ModelException.ProductAlreadyExists(product.id))
@@ -25,24 +24,24 @@ fun getQuantity(id: UUID): Either<ModelException, Int> {
     }
 }
 
-fun deleteQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Unit> {
+fun deleteQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Int> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
-        if (quantity > 0 && quantity <= product.count)
+        return if (quantity > 0 && quantity <= product.count) {
             product.count -= quantity
-        else return Left(ModelException.ProductCanNotHaveThisCount(id, quantity))
+            Right(product.count)
+        } else Left(ModelException.ProductCanNotHaveThisCount(id, quantity))
     }
-    return Right(Unit)
 }
 
-fun addQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Unit> {
+fun addQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Int> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
-        if (quantity > 0)
+        return if (quantity > 0) {
             product.count += quantity
-        else return Left(ModelException.ProductCanNotHaveThisCount(id, quantity))
+            Right(product.count)
+        } else Left(ModelException.ProductCanNotHaveThisCount(id, quantity))
     }
-    return Right(Unit)
 }
 
 fun addGroup(newGroup: String): Either<ModelException, Unit> {
@@ -54,7 +53,7 @@ fun addGroup(newGroup: String): Either<ModelException, Unit> {
     return Right(Unit)
 }
 
-fun addGroupNameToProduct(id: UUID, groupName: String): Either<ModelException, Unit> {
+fun addGroupNameToProduct(id: UUID, groupName: String): Either<ModelException, Product> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     val group = groups[groupName] ?: return Left(ModelException.GroupDoesNotExist(groupName))
     synchronized(product) {
@@ -63,18 +62,18 @@ fun addGroupNameToProduct(id: UUID, groupName: String): Either<ModelException, U
                 Left(ModelException.ProductAlreadyInGroup(product, groupName))
             } else {
                 group.add(product)
-                Right(Unit)
+                Right(product)
             }
         }
     }
 }
 
-fun setPrice(id: UUID, price: Double): Either<ModelException, Unit> {
+fun setPrice(id: UUID, price: Double): Either<ModelException, Double> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
         if (price > 0) {
             product.price = price
         } else return Left(ModelException.ProductCanNotHaveThisPrice(id, price))
-        return Right(Unit)
+        return Right(product.price)
     }
 }

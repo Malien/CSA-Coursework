@@ -202,21 +202,9 @@ sealed class Message(
 
             return Right(
                 when (M::class) {
-                    Encrypted::class -> Encrypted(
-                        type,
-                        userID,
-                        message
-                    ) as M
-                    Decrypted::class -> Decrypted(
-                        type,
-                        userID,
-                        message
-                    ) as M
-                    Message::class -> Decrypted(
-                        type,
-                        userID,
-                        message
-                    ) as M
+                    Encrypted::class -> Encrypted(type, userID, message) as M
+                    Decrypted::class -> Decrypted(type, userID, message) as M
+                    Message::class -> Decrypted(type, userID, message) as M
                     else -> throw RuntimeException("Unknown message type")
                 }
             )

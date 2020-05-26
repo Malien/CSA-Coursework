@@ -26,8 +26,8 @@ class ProductTest {
 
     @Test
     fun setPriceValidate() {
-        setPrice(product.id, 15.6).handleWithThrow()
-        assertEquals(15.6, product.price)
+        val newPrice = setPrice(product.id, 15.6)
+        assertRight(15.6, newPrice)
     }
 
     @Test
@@ -38,8 +38,8 @@ class ProductTest {
 
     @Test
     fun deleteQuantityOfProductValidate() {
-        deleteQuantityOfProduct(product.id, 20).handleWithThrow()
-        assertEquals(80, product.count)
+        val newCount = deleteQuantityOfProduct(product.id, 20)
+        assertRight(80, newCount)
     }
 
     @Test
@@ -56,8 +56,8 @@ class ProductTest {
 
     @Test
     fun addQuantityOfProductValidate() {
-        addQuantityOfProduct(product.id, 50).handleWithThrow()
-        assertEquals(150, product.count)
+        val newCount = addQuantityOfProduct(product.id, 50)
+        assertRight(150, newCount)
     }
 
     @Test

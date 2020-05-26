@@ -99,15 +99,7 @@ data class Packet<M : Message>(
                 .array()
 
         fun calculateHeaderCRC(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int) =
-            calculateCRC(
-                Parameters.CRC16,
-                headerData(
-                    magic,
-                    clientID,
-                    packetID,
-                    messageLength
-                )
-            ).toShort()
+            calculateCRC(Parameters.CRC16, headerData(magic, clientID, packetID, messageLength)).toShort()
 
         fun calculateMessageCRC(message: Message) =
             calculateCRC(Parameters.CRC16, message.data).toShort()
