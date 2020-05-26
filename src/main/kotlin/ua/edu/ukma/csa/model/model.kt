@@ -7,6 +7,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 val model = ConcurrentHashMap<UUID, Product>(100)
+val setGroups = mutableSetOf<String>()
 
 // Here you can write your processing methods, for e.g.
 
@@ -46,18 +47,20 @@ fun addQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Unit> 
 fun addGroup(id: UUID, newGroup: String): Either<ModelException, Unit> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
-        val setOfGroup: MutableSet<String> = mutableSetOf()
-        setOfGroup.add(newGroup)
+        setGroups.add(newGroup)
     }
     return Right(Unit)
 }
 
-//fun addGroupToProduct(id: UUID, groupName: String): Either<ModelException, Unit> {
-//    val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
-//    synchronized(product) {
-//    }
-//    return Right(Unit)
-//}
+fun addGroupNameToProduct(id: UUID, groupName: String): Either<ModelException, Unit> {
+    val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
+    synchronized(product) {
+        if (!setGroups.contains(groupName)) {
+            product.copy(groups = groupName)
+        } else return Left(ModelException.GroupAlreadyExists(id, groupName))
+    }
+    return Right(Unit)
+}
 
 fun setPrice(id: UUID, price: Double): Either<ModelException, Unit> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))

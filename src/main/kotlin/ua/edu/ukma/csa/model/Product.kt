@@ -5,7 +5,7 @@ import java.util.*
 data class Product(
     val id: UUID = UUID.randomUUID(),
     val name: String,
-    //val groups: Set<String> = emptySet(),
+    var groups: String,
     var count: Int = 0,
     var price: Double
 )

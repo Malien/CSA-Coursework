@@ -8,17 +8,7 @@ import java.util.UUID
 class ProductTest {
 
     private val id = UUID.randomUUID()
-    private var product = Product(id, "Biscuit", 100, 20.5)
-
-//    @Test
-//    fun check() {
-//        addProduct(product)
-//        println(model[id]!!.price)
-//        var newP = 15.6
-//        model[id]!!.price = newP
-//        println(model[id]!!.price )
-//    }
-
+    private var product = Product(id, "Biscuit", "Sweet", 100, 20.5)
 
     @Test
     fun addProductCheck() {
@@ -88,8 +78,18 @@ class ProductTest {
     @Test
     fun addGroupCheck() {
         addProduct(product)
-        addGroup(product.id, "Sweet")
+        addGroup(product.id, "Lego")
+        addGroup(product.id, "Fruits")
+        addGroup(product.id, "Vegetables")
+        addGroup(product.id, "Lego")
+        //println(setGroups)
+    }
 
+    @Test
+    fun addGroupNameToProductCheck(){
+        addProduct(product)
+        addGroupNameToProduct(product.id, "Lego")
+        println(product)
     }
 
 }
