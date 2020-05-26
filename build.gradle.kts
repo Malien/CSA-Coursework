@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm") version "1.3.72"
     kotlin("kapt") version "1.3.72"
+    kotlin("plugin.serialization") version "1.3.72"
 }
 
 val arrowVersion = "0.10.5"
@@ -15,6 +16,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0")
     implementation("com.github.snksoft:crc:1.0.2")
     implementation("io.arrow-kt:arrow-core:$arrowVersion")
     implementation("io.arrow-kt:arrow-syntax:$arrowVersion")
