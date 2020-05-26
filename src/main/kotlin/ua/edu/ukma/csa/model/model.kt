@@ -53,7 +53,7 @@ fun addGroup(newGroup: String): Either<ModelException, Unit> {
     return Right(Unit)
 }
 
-fun addGroupNameToProduct(id: UUID, groupName: String): Either<ModelException, Product> {
+fun assignGroup(id: UUID, groupName: String): Either<ModelException, Product> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     val group = groups[groupName] ?: return Left(ModelException.GroupDoesNotExist(groupName))
     synchronized(product) {
