@@ -5,8 +5,10 @@ import arrow.core.Right
 import arrow.core.flatMap
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.nextByte
@@ -17,6 +19,7 @@ import ua.edu.ukma.csa.kotlinx.serialization.functionalParse
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.Packet.Companion.sequenceFrom
+import ua.edu.ukma.csa.network.Request.*
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.Key
@@ -24,6 +27,7 @@ import java.security.SecureRandom
 import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
+import kotlin.concurrent.thread
 
 class ProcessingTest {
 
@@ -80,8 +84,8 @@ class ProcessingTest {
 
     @Test
     fun validRequest() {
-        val request = Request.GetQuantity(biscuit.id)
-        val response = request.toMessage(userID, Request.GetQuantity.serializer())
+        val request = GetQuantity(biscuit.id)
+        val response = request.toMessage(userID, GetQuantity.serializer())
             .map { message -> Packet(clientID, message, packetID) }
             .map(::handlePacket)
             .flatMap { packet ->
@@ -94,8 +98,8 @@ class ProcessingTest {
 
     @Test
     fun validEncryptedRequest() {
-        val request = Request.GetQuantity(biscuit.id)
-        val response = request.toMessage(userID, Request.GetQuantity.serializer())
+        val request = GetQuantity(biscuit.id)
+        val response = request.toMessage(userID, GetQuantity.serializer())
             .map { message -> message.encrypted(key, cipher) }
             .map { encrypted -> Packet(clientID, encrypted, packetID) }
             .map { packet -> handlePacket(packet, key, cipher) }
@@ -118,8 +122,8 @@ class ProcessingTest {
 
     @Test
     fun validStreamedRequests() {
-        val bytes = generateSequence { Request.GetQuantity(biscuit.id) }
-            .map { it.toMessage(userID, Request.GetQuantity.serializer()).handleWithThrow() }
+        val bytes = generateSequence { GetQuantity(biscuit.id) }
+            .map { it.toMessage(userID, GetQuantity.serializer()).handleWithThrow() }
             .mapIndexed { idx, message -> Packet(clientID, message, packetID = idx.toLong()) }
             .map { it.data }
             .take(10) // Arbitrary amount
@@ -146,9 +150,10 @@ class ProcessingTest {
 
     @Test
     fun validEncryptedStreamedRequests() {
-        val bytes = generateSequence { Request.GetQuantity(biscuit.id) }
-            .map { it.toMessage(userID, Request.GetQuantity.serializer()).handleWithThrow() }
+        val bytes = generateSequence { GetQuantity(biscuit.id) }
+            .map { it.toMessage(userID, GetQuantity.serializer()).handleWithThrow() }
             .map { it.encrypted(key, cipher) }
+            .mapIndexed { idx, message -> Packet(clientID, message, idx.toLong()) }
             .map { it.data }
             .take(10) // Arbitrary amount
             .reduce { acc, bytes ->
@@ -170,5 +175,88 @@ class ProcessingTest {
             }
             assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
         }
+    }
+
+    @RepeatedTest(20)
+    fun parallelChanges() {
+        val requestsList = listOf(
+            sequenceOf(
+                AddGroup("Special").toMessage(userID, AddGroup.serializer()),
+                AssignGroup(biscuit.id, "Special").toMessage(userID, AssignGroup.serializer()),
+                AssignGroup(iceCream.id, "Special").toMessage(userID, AssignGroup.serializer())
+            ), sequenceOf(
+                AddGroup("Discounted").toMessage(userID, AddGroup.serializer()),
+
+                SetPrice(biscuit.id, 17.5).toMessage(userID, SetPrice.serializer()),
+                AssignGroup(biscuit.id, "Discounted").toMessage(userID, AssignGroup.serializer()),
+
+                AssignGroup(conditioner.id, "Discounted").toMessage(userID, AssignGroup.serializer()),
+                SetPrice(conditioner.id, 9.70).toMessage(userID, SetPrice.serializer()),
+                Exclude(conditioner.id, 10).toMessage(userID, Exclude.serializer())
+            ), sequenceOf(
+                Exclude(biscuit.id, 20).toMessage(userID, Exclude.serializer())
+            ), sequenceOf(
+                Exclude(biscuit.id, 10).toMessage(userID, Exclude.serializer()),
+                Exclude(iceCream.id, 10).toMessage(userID, Exclude.serializer())
+            ), sequenceOf(
+                Exclude(biscuit.id, 10).toMessage(userID, Exclude.serializer()),
+                Exclude(iceCream.id, 10).toMessage(userID, Exclude.serializer())
+            ), sequenceOf(
+                Include(biscuit.id, 60).toMessage(userID, Include.serializer()),
+                Include(conditioner.id, 20).toMessage(userID, Include.serializer()),
+                Include(iceCream.id, 5).toMessage(userID, Include.serializer())
+            )
+        )
+
+        requestsList
+            .map { request ->
+                thread {
+                    val localCipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+                    val bytes = request
+                        .map { it.handleWithThrow() }
+                        .map { it.encrypted(key, localCipher) }
+                        .mapIndexed { idx, message -> Packet(clientID, message, idx.toLong()) }
+                        .map { it.data }
+                        .reduce { acc, bytes ->
+                            ByteArray(acc.size + bytes.size).also {
+                                acc.copyInto(it)
+                                bytes.copyInto(it, destinationOffset = acc.size)
+                            }
+                        }
+                    val stream = ByteArrayInputStream(bytes)
+                    val out = ByteArrayOutputStream()
+                    handleStream(stream, out, key, localCipher)
+                }
+            }
+            .forEach { it.join() }
+
+        Assertions.assertTrue(groups.containsKey("Special"))
+        Assertions.assertTrue(groups.containsKey("Discounted"))
+        Assertions.assertTrue(biscuit in groups["Special"]!!)
+        Assertions.assertTrue(iceCream in groups["Special"]!!)
+        Assertions.assertTrue(biscuit in groups["Discounted"]!!)
+        Assertions.assertTrue(conditioner in groups["Discounted"]!!)
+        assertEquals(17.5, biscuit.price)
+        assertEquals(9.70, conditioner.price)
+        assertRight(120, getQuantity(biscuit.id))
+        assertRight(30, getQuantity(conditioner.id))
+        assertRight(35, getQuantity(iceCream.id))
+
+        fun requestQuantity(id: UUID) =
+            GetQuantity(id).toMessage(userID, GetQuantity.serializer())
+                .map { message -> message.encrypted(key, cipher) }
+                .map { encrypted -> Packet(clientID, encrypted, packetID) }
+                .map { packet -> handlePacket(packet, key, cipher) }
+                .flatMap { packet ->
+                    if (packet.message.type == MessageType.OK) Right(packet.message)
+                    else Left(assertEquals(MessageType.OK, packet.message.type))
+                }
+                .map { encrypted -> encrypted.decrypted(key, cipher) }
+                .flatMap { message -> json.functionalParse(Response.Quantity.serializer(), String(message.message)) }
+                .map { it.count }
+
+        assertRight(120, requestQuantity(biscuit.id))
+        assertRight(30, requestQuantity(conditioner.id))
+        assertRight(35, requestQuantity(iceCream.id))
     }
 }
