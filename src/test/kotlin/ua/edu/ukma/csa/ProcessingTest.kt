@@ -82,7 +82,7 @@ class ProcessingTest {
     @Test
     fun validRequest() {
         val request = GetQuantity(biscuit.id)
-        val response = request.toMessage(userID, GetQuantity.serializer())
+        val response = request.toMessage(userID)
             .map { message -> Packet(clientID, message, packetID) }
             .map(::handlePacket)
             .flatMap { packet ->
@@ -96,7 +96,7 @@ class ProcessingTest {
     @Test
     fun validEncryptedRequest() {
         val request = GetQuantity(biscuit.id)
-        val response = request.toMessage(userID, GetQuantity.serializer())
+        val response = request.toMessage(userID)
             .map { message -> message.encrypted(key, cipher) }
             .map { encrypted -> Packet(clientID, encrypted, packetID) }
             .map { packet -> handlePacket(packet, key, cipher) }
@@ -120,7 +120,7 @@ class ProcessingTest {
     @Test
     fun validStreamedRequests() {
         val bytes = generateSequence { GetQuantity(biscuit.id) }
-            .map { it.toMessage(userID, GetQuantity.serializer()).handleWithThrow() }
+            .map { it.toMessage(userID).handleWithThrow() }
             .mapIndexed { idx, message -> Packet(clientID, message, packetID = idx.toLong()) }
             .map { it.data }
             .take(10) // Arbitrary amount
@@ -148,7 +148,7 @@ class ProcessingTest {
     @Test
     fun validEncryptedStreamedRequests() {
         val bytes = generateSequence { GetQuantity(biscuit.id) }
-            .map { it.toMessage(userID, GetQuantity.serializer()).handleWithThrow() }
+            .map { it.toMessage(userID).handleWithThrow() }
             .map { it.encrypted(key, cipher) }
             .mapIndexed { idx, message -> Packet(clientID, message, idx.toLong()) }
             .map { it.data }
@@ -178,30 +178,30 @@ class ProcessingTest {
     fun parallelChanges() {
         val requestsList = listOf(
             sequenceOf(
-                AddGroup("Special").toMessage(userID, AddGroup.serializer()),
-                AssignGroup(biscuit.id, "Special").toMessage(userID, AssignGroup.serializer()),
-                AssignGroup(iceCream.id, "Special").toMessage(userID, AssignGroup.serializer())
+                AddGroup("Special").toMessage(userID),
+                AssignGroup(biscuit.id, "Special").toMessage(userID),
+                AssignGroup(iceCream.id, "Special").toMessage(userID)
             ), sequenceOf(
-                AddGroup("Discounted").toMessage(userID, AddGroup.serializer()),
+                AddGroup("Discounted").toMessage(userID),
 
-                SetPrice(biscuit.id, 17.5).toMessage(userID, SetPrice.serializer()),
-                AssignGroup(biscuit.id, "Discounted").toMessage(userID, AssignGroup.serializer()),
+                SetPrice(biscuit.id, 17.5).toMessage(userID),
+                AssignGroup(biscuit.id, "Discounted").toMessage(userID),
 
-                AssignGroup(conditioner.id, "Discounted").toMessage(userID, AssignGroup.serializer()),
-                SetPrice(conditioner.id, 9.70).toMessage(userID, SetPrice.serializer()),
-                Exclude(conditioner.id, 10).toMessage(userID, Exclude.serializer())
+                AssignGroup(conditioner.id, "Discounted").toMessage(userID),
+                SetPrice(conditioner.id, 9.70).toMessage(userID),
+                Exclude(conditioner.id, 10).toMessage(userID)
             ), sequenceOf(
-                Exclude(biscuit.id, 20).toMessage(userID, Exclude.serializer())
+                Exclude(biscuit.id, 20).toMessage(userID)
             ), sequenceOf(
-                Exclude(biscuit.id, 10).toMessage(userID, Exclude.serializer()),
-                Exclude(iceCream.id, 10).toMessage(userID, Exclude.serializer())
+                Exclude(biscuit.id, 10).toMessage(userID),
+                Exclude(iceCream.id, 10).toMessage(userID)
             ), sequenceOf(
-                Exclude(biscuit.id, 10).toMessage(userID, Exclude.serializer()),
-                Exclude(iceCream.id, 10).toMessage(userID, Exclude.serializer())
+                Exclude(biscuit.id, 10).toMessage(userID),
+                Exclude(iceCream.id, 10).toMessage(userID)
             ), sequenceOf(
-                Include(biscuit.id, 60).toMessage(userID, Include.serializer()),
-                Include(conditioner.id, 20).toMessage(userID, Include.serializer()),
-                Include(iceCream.id, 5).toMessage(userID, Include.serializer())
+                Include(biscuit.id, 60).toMessage(userID),
+                Include(conditioner.id, 20).toMessage(userID),
+                Include(iceCream.id, 5).toMessage(userID)
             )
         )
 
@@ -240,7 +240,7 @@ class ProcessingTest {
         assertRight(35, getQuantity(iceCream.id))
 
         fun requestQuantity(id: UUID) =
-            GetQuantity(id).toMessage(userID, GetQuantity.serializer())
+            GetQuantity(id).toMessage(userID)
                 .map { message -> message.encrypted(key, cipher) }
                 .map { encrypted -> Packet(clientID, encrypted, packetID) }
                 .map { packet -> handlePacket(packet, key, cipher) }
