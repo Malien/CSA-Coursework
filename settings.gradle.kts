@@ -1,2 +1,1 @@
-rootProject.name = "CSA-CustomPackages"
-
+rootProject.name = "CSA-Coursework"
