@@ -5,9 +5,8 @@ import arrow.core.Left
 import arrow.core.flatMap
 import arrow.core.getOrHandle
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
-import ua.edu.ukma.csa.kotlinx.serialization.functionalParse
+import kotlinx.serialization.protobuf.ProtoBuf
+import ua.edu.ukma.csa.kotlinx.serialization.fload
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.MessageType.*
 import java.io.InputStream
@@ -22,14 +21,12 @@ fun errorPacket(error: Exception) = Packet(clientID = 0, message = errorMessage(
 fun errorPacket(error: Exception, key: Key, cipher: Cipher) =
     Packet(clientID = 0, message = errorMessage(error.message!!).encrypted(key, cipher))
 
-val json = Json(JsonConfiguration.Stable)
-
 fun <Req : Request, Res : Response> processMessage(
     requestSerializer: KSerializer<Req>,
     responseSerializer: KSerializer<Res>,
     message: Message.Decrypted,
     handler: (request: Req) -> Either<ModelException, Res>
-) = json.functionalParse(requestSerializer, String(message.message))
+) = ProtoBuf.fload(requestSerializer, message.message)
     .flatMap(handler)
     .flatMap { it.toMessage(serializer = responseSerializer) }
 

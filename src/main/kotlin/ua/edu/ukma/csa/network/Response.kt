@@ -3,9 +3,8 @@ package ua.edu.ukma.csa.network
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
-import ua.edu.ukma.csa.kotlinx.serialization.functionalStringify
+import kotlinx.serialization.protobuf.ProtoBuf
+import ua.edu.ukma.csa.kotlinx.serialization.fdump
 import ua.edu.ukma.csa.kotlinx.util.UUIDSerializer
 import java.util.*
 
@@ -29,4 +28,4 @@ fun <T: Response> T.toMessage(userID: Int = 0, serializer: KSerializer<T>) =
     serialize(serializer).map { Message.Decrypted(messageType, userID, message = it) }
 
 fun <T: Response> T.serialize(serializer: KSerializer<T>) =
-    Json(JsonConfiguration.Stable).functionalStringify(serializer, this).map { it.toByteArray() }
+    ProtoBuf.fdump(serializer, this)

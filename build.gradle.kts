@@ -17,6 +17,7 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:0.20.0")
     implementation("com.github.snksoft:crc:1.0.2")
     implementation("io.arrow-kt:arrow-core:$arrowVersion")
     implementation("io.arrow-kt:arrow-syntax:$arrowVersion")
@@ -25,6 +26,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.2.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.2.0")
     testRuntime("org.junit.platform:junit-platform-console:1.2.0")
+    implementation(kotlin("script-runtime"))
 }
 
 tasks {

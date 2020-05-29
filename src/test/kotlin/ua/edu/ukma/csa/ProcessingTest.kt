@@ -3,8 +3,7 @@ package ua.edu.ukma.csa
 import arrow.core.Left
 import arrow.core.Right
 import arrow.core.flatMap
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
+import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -15,7 +14,7 @@ import ua.edu.ukma.csa.kotlinx.nextByte
 import ua.edu.ukma.csa.kotlinx.nextInt
 import ua.edu.ukma.csa.kotlinx.nextLong
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
-import ua.edu.ukma.csa.kotlinx.serialization.functionalParse
+import ua.edu.ukma.csa.kotlinx.serialization.fload
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.Packet.Companion.sequenceFrom
@@ -80,8 +79,6 @@ class ProcessingTest {
         assignGroup(iceCream.id, "Diary")
     }
 
-    private val json = Json(JsonConfiguration.Stable)
-
     @Test
     fun validRequest() {
         val request = GetQuantity(biscuit.id)
@@ -92,7 +89,7 @@ class ProcessingTest {
                 if (packet.message.type == MessageType.OK) Right(packet.message)
                 else Left(assertEquals(MessageType.OK, packet.message.type))
             }
-            .flatMap { json.functionalParse(Response.Quantity.serializer(), String(it.message)) }
+            .flatMap { ProtoBuf.fload(Response.Quantity.serializer(), it.message) }
         assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
     }
 
@@ -108,7 +105,7 @@ class ProcessingTest {
                 else Left(assertEquals(MessageType.OK, packet.message.type))
             }
             .map { encryptedMessage -> encryptedMessage.decrypted(key, cipher) }
-            .flatMap { json.functionalParse(Response.Quantity.serializer(), String(it.message)) }
+            .flatMap { ProtoBuf.fload(Response.Quantity.serializer(), it.message) }
         assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
     }
 
@@ -142,7 +139,7 @@ class ProcessingTest {
                 assertEquals(idx, it.packetID.toInt())
                 it.message
             }.flatMap {
-                json.functionalParse(Response.Quantity.serializer(), String(it.message))
+                ProtoBuf.fload(Response.Quantity.serializer(), it.message)
             }
             assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
         }
@@ -171,7 +168,7 @@ class ProcessingTest {
                 assertEquals(idx, it.packetID.toInt())
                 it.message.decrypted(key, cipher)
             }.flatMap {
-                json.functionalParse(Response.Quantity.serializer(), String(it.message))
+                ProtoBuf.fload(Response.Quantity.serializer(), it.message)
             }
             assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
         }
@@ -252,7 +249,7 @@ class ProcessingTest {
                     else Left(assertEquals(MessageType.OK, packet.message.type))
                 }
                 .map { encrypted -> encrypted.decrypted(key, cipher) }
-                .flatMap { message -> json.functionalParse(Response.Quantity.serializer(), String(message.message)) }
+                .flatMap { message -> ProtoBuf.fload(Response.Quantity.serializer(), message.message) }
                 .map { it.count }
 
         assertRight(120, requestQuantity(biscuit.id))
