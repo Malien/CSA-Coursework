@@ -2,19 +2,19 @@ package ua.edu.ukma.csa.kotlinx.serialization
 
 import arrow.core.Left
 import arrow.core.Right
+import kotlinx.serialization.BinaryFormat
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.SerializationStrategy
-import kotlinx.serialization.json.Json
 
-fun <T> Json.functionalStringify(serializer: SerializationStrategy<T>, value: T) = try {
-    Right(stringify(serializer, value))
+fun <T> BinaryFormat.fdump(serializer: SerializationStrategy<T>, value: T) = try {
+    Right(dump(serializer, value))
 } catch (e: SerializationException) {
     Left(e)
 }
 
-fun <T> Json.functionalParse(deserializer: DeserializationStrategy<T>, string: String) = try {
-    Right(parse(deserializer, string))
+fun <T> BinaryFormat.fload(deserializer: DeserializationStrategy<T>, value: ByteArray) = try {
+    Right(load(deserializer, value))
 } catch (e: SerializationException) {
     Left(e)
 }

@@ -3,8 +3,7 @@ package ua.edu.ukma.csa
 import arrow.core.Left
 import arrow.core.Right
 import arrow.core.flatMap
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
+import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -15,7 +14,7 @@ import ua.edu.ukma.csa.kotlinx.nextByte
 import ua.edu.ukma.csa.kotlinx.nextInt
 import ua.edu.ukma.csa.kotlinx.nextLong
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
-import ua.edu.ukma.csa.kotlinx.serialization.functionalParse
+import ua.edu.ukma.csa.kotlinx.serialization.fload
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.Packet.Companion.sequenceFrom
@@ -80,26 +79,24 @@ class ProcessingTest {
         assignGroup(iceCream.id, "Diary")
     }
 
-    private val json = Json(JsonConfiguration.Stable)
-
     @Test
     fun validRequest() {
         val request = GetQuantity(biscuit.id)
-        val response = request.toMessage(userID, GetQuantity.serializer())
+        val response = request.toMessage(userID)
             .map { message -> Packet(clientID, message, packetID) }
             .map(::handlePacket)
             .flatMap { packet ->
                 if (packet.message.type == MessageType.OK) Right(packet.message)
                 else Left(assertEquals(MessageType.OK, packet.message.type))
             }
-            .flatMap { json.functionalParse(Response.Quantity.serializer(), String(it.message)) }
+            .flatMap { ProtoBuf.fload(Response.Quantity.serializer(), it.message) }
         assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
     }
 
     @Test
     fun validEncryptedRequest() {
         val request = GetQuantity(biscuit.id)
-        val response = request.toMessage(userID, GetQuantity.serializer())
+        val response = request.toMessage(userID)
             .map { message -> message.encrypted(key, cipher) }
             .map { encrypted -> Packet(clientID, encrypted, packetID) }
             .map { packet -> handlePacket(packet, key, cipher) }
@@ -108,7 +105,7 @@ class ProcessingTest {
                 else Left(assertEquals(MessageType.OK, packet.message.type))
             }
             .map { encryptedMessage -> encryptedMessage.decrypted(key, cipher) }
-            .flatMap { json.functionalParse(Response.Quantity.serializer(), String(it.message)) }
+            .flatMap { ProtoBuf.fload(Response.Quantity.serializer(), it.message) }
         assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
     }
 
@@ -123,7 +120,7 @@ class ProcessingTest {
     @Test
     fun validStreamedRequests() {
         val bytes = generateSequence { GetQuantity(biscuit.id) }
-            .map { it.toMessage(userID, GetQuantity.serializer()).handleWithThrow() }
+            .map { it.toMessage(userID).handleWithThrow() }
             .mapIndexed { idx, message -> Packet(clientID, message, packetID = idx.toLong()) }
             .map { it.data }
             .take(10) // Arbitrary amount
@@ -142,7 +139,7 @@ class ProcessingTest {
                 assertEquals(idx, it.packetID.toInt())
                 it.message
             }.flatMap {
-                json.functionalParse(Response.Quantity.serializer(), String(it.message))
+                ProtoBuf.fload(Response.Quantity.serializer(), it.message)
             }
             assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
         }
@@ -151,7 +148,7 @@ class ProcessingTest {
     @Test
     fun validEncryptedStreamedRequests() {
         val bytes = generateSequence { GetQuantity(biscuit.id) }
-            .map { it.toMessage(userID, GetQuantity.serializer()).handleWithThrow() }
+            .map { it.toMessage(userID).handleWithThrow() }
             .map { it.encrypted(key, cipher) }
             .mapIndexed { idx, message -> Packet(clientID, message, idx.toLong()) }
             .map { it.data }
@@ -171,7 +168,7 @@ class ProcessingTest {
                 assertEquals(idx, it.packetID.toInt())
                 it.message.decrypted(key, cipher)
             }.flatMap {
-                json.functionalParse(Response.Quantity.serializer(), String(it.message))
+                ProtoBuf.fload(Response.Quantity.serializer(), it.message)
             }
             assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
         }
@@ -181,30 +178,30 @@ class ProcessingTest {
     fun parallelChanges() {
         val requestsList = listOf(
             sequenceOf(
-                AddGroup("Special").toMessage(userID, AddGroup.serializer()),
-                AssignGroup(biscuit.id, "Special").toMessage(userID, AssignGroup.serializer()),
-                AssignGroup(iceCream.id, "Special").toMessage(userID, AssignGroup.serializer())
+                AddGroup("Special").toMessage(userID),
+                AssignGroup(biscuit.id, "Special").toMessage(userID),
+                AssignGroup(iceCream.id, "Special").toMessage(userID)
             ), sequenceOf(
-                AddGroup("Discounted").toMessage(userID, AddGroup.serializer()),
+                AddGroup("Discounted").toMessage(userID),
 
-                SetPrice(biscuit.id, 17.5).toMessage(userID, SetPrice.serializer()),
-                AssignGroup(biscuit.id, "Discounted").toMessage(userID, AssignGroup.serializer()),
+                SetPrice(biscuit.id, 17.5).toMessage(userID),
+                AssignGroup(biscuit.id, "Discounted").toMessage(userID),
 
-                AssignGroup(conditioner.id, "Discounted").toMessage(userID, AssignGroup.serializer()),
-                SetPrice(conditioner.id, 9.70).toMessage(userID, SetPrice.serializer()),
-                Exclude(conditioner.id, 10).toMessage(userID, Exclude.serializer())
+                AssignGroup(conditioner.id, "Discounted").toMessage(userID),
+                SetPrice(conditioner.id, 9.70).toMessage(userID),
+                Exclude(conditioner.id, 10).toMessage(userID)
             ), sequenceOf(
-                Exclude(biscuit.id, 20).toMessage(userID, Exclude.serializer())
+                Exclude(biscuit.id, 20).toMessage(userID)
             ), sequenceOf(
-                Exclude(biscuit.id, 10).toMessage(userID, Exclude.serializer()),
-                Exclude(iceCream.id, 10).toMessage(userID, Exclude.serializer())
+                Exclude(biscuit.id, 10).toMessage(userID),
+                Exclude(iceCream.id, 10).toMessage(userID)
             ), sequenceOf(
-                Exclude(biscuit.id, 10).toMessage(userID, Exclude.serializer()),
-                Exclude(iceCream.id, 10).toMessage(userID, Exclude.serializer())
+                Exclude(biscuit.id, 10).toMessage(userID),
+                Exclude(iceCream.id, 10).toMessage(userID)
             ), sequenceOf(
-                Include(biscuit.id, 60).toMessage(userID, Include.serializer()),
-                Include(conditioner.id, 20).toMessage(userID, Include.serializer()),
-                Include(iceCream.id, 5).toMessage(userID, Include.serializer())
+                Include(biscuit.id, 60).toMessage(userID),
+                Include(conditioner.id, 20).toMessage(userID),
+                Include(iceCream.id, 5).toMessage(userID)
             )
         )
 
@@ -243,7 +240,7 @@ class ProcessingTest {
         assertRight(35, getQuantity(iceCream.id))
 
         fun requestQuantity(id: UUID) =
-            GetQuantity(id).toMessage(userID, GetQuantity.serializer())
+            GetQuantity(id).toMessage(userID)
                 .map { message -> message.encrypted(key, cipher) }
                 .map { encrypted -> Packet(clientID, encrypted, packetID) }
                 .map { packet -> handlePacket(packet, key, cipher) }
@@ -252,7 +249,7 @@ class ProcessingTest {
                     else Left(assertEquals(MessageType.OK, packet.message.type))
                 }
                 .map { encrypted -> encrypted.decrypted(key, cipher) }
-                .flatMap { message -> json.functionalParse(Response.Quantity.serializer(), String(message.message)) }
+                .flatMap { message -> ProtoBuf.fload(Response.Quantity.serializer(), message.message) }
                 .map { it.count }
 
         assertRight(120, requestQuantity(biscuit.id))

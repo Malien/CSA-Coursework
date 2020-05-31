@@ -4,10 +4,10 @@ import arrow.core.Either
 import arrow.core.Left
 import arrow.core.flatMap
 import arrow.core.getOrHandle
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
-import ua.edu.ukma.csa.kotlinx.serialization.functionalParse
+import kotlinx.serialization.ImplicitReflectionSerializer
+import kotlinx.serialization.protobuf.ProtoBuf
+import kotlinx.serialization.serializer
+import ua.edu.ukma.csa.kotlinx.serialization.fload
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.MessageType.*
 import java.io.InputStream
@@ -22,16 +22,13 @@ fun errorPacket(error: Exception) = Packet(clientID = 0, message = errorMessage(
 fun errorPacket(error: Exception, key: Key, cipher: Cipher) =
     Packet(clientID = 0, message = errorMessage(error.message!!).encrypted(key, cipher))
 
-val json = Json(JsonConfiguration.Stable)
-
-fun <Req : Request, Res : Response> processMessage(
-    requestSerializer: KSerializer<Req>,
-    responseSerializer: KSerializer<Res>,
+@OptIn(ImplicitReflectionSerializer::class)
+inline fun <reified Req : Request, reified Res : Response> processMessage(
     message: Message.Decrypted,
-    handler: (request: Req) -> Either<ModelException, Res>
-) = json.functionalParse(requestSerializer, String(message.message))
+    noinline handler: (request: Req) -> Either<ModelException, Res>
+) = ProtoBuf.fload(Req::class.serializer(), message.message)
     .flatMap(handler)
-    .flatMap { it.toMessage(serializer = responseSerializer) }
+    .flatMap { it.toMessage() }
 
 /**
  * Dispatch message into according handling functions, and return response message
@@ -40,22 +37,22 @@ fun <Req : Request, Res : Response> processMessage(
  */
 fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message.type) {
     OK, ERR -> Left(RuntimeException("Cannot process request of type ${message.type}"))
-    GET_COUNT -> processMessage(Request.GetQuantity.serializer(), Response.Quantity.serializer(), message) { request ->
+    GET_COUNT -> processMessage(message) { request: Request.GetQuantity ->
         getQuantity(request.id).map { Response.Quantity(id = request.id, count = it) }
     }
-    INCLUDE -> processMessage(Request.Include.serializer(), Response.Quantity.serializer(), message) { request ->
+    INCLUDE -> processMessage(message) { request: Request.Include ->
         addQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = it) }
     }
-    EXCLUDE -> processMessage(Request.Exclude.serializer(), Response.Quantity.serializer(), message) { request ->
+    EXCLUDE -> processMessage(message) { request: Request.Exclude ->
         deleteQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = it) }
     }
-    ADD_GROUP -> processMessage(Request.AddGroup.serializer(), Response.Ok.serializer(), message) { request ->
+    ADD_GROUP -> processMessage(message) { request: Request.AddGroup ->
         addGroup(request.name).map { Response.Ok }
     }
-    ASSIGN_GROUP -> processMessage(Request.AssignGroup.serializer(), Response.Ok.serializer(), message) { request ->
+    ASSIGN_GROUP -> processMessage(message) { request: Request.AssignGroup ->
         assignGroup(request.id, request.group).map { Response.Ok }
     }
-    SET_PRICE -> processMessage(Request.SetPrice.serializer(), Response.Price.serializer(), message) { request ->
+    SET_PRICE -> processMessage(message) { request: Request.SetPrice ->
         setPrice(request.id, request.price).map { Response.Price(id = request.id, count = it) }
     }
 }.getOrHandle { error -> errorMessage(error.message ?: "") }
