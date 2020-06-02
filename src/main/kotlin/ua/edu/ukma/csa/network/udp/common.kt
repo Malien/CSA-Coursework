@@ -54,7 +54,7 @@ fun splitData(
             packetID = packetID,
             chunk = data,
             chunkOffset = offset + (it * UDPPacket.PACKET_BODY).toInt(),
-            chunkSize = UDPPacket.PACKET_BODY.toInt()
+            chunkLength = UDPPacket.PACKET_BODY.toInt()
                 .coerceAtMost(data.size - offset - (it * UDPPacket.PACKET_BODY).toInt())
         )
     })

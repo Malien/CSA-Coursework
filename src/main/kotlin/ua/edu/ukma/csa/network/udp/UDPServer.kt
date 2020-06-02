@@ -14,7 +14,7 @@ import javax.crypto.Cipher
 import kotlin.concurrent.thread
 
 // TODO: Add PING - PONG
-// TODO: I don't know how well I'm handling packetID overflow
+// TODO: window size 0 is invalid. Do smt with it
 
 /**
  * Class that encapsulates serving logic through UDP protocol. It will assemble large messages and guarantee that they
@@ -39,27 +39,6 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
 
     @Volatile
     private var shouldStop = false
-
-    /**
-     * Container for managing packets that are in the process of being assembled (windows).
-     * @param packets array of packets that are a part of the same window. Size of array is specified by the size of
-     *                window itself
-     * @param received amount of packets from window that are already received.
-     */
-    class UDPWindow(val packets: Array<UDPPacket?>, var received: UByte = 0u) {
-        /**
-         * Constructs an empty window container with the expected size of window
-         * @param window the expected size of window
-         */
-        constructor(window: UByte) : this(arrayOfNulls(window.toInt()))
-
-        operator fun get(idx: UByte) = packets[idx.toInt()]
-        operator fun set(idx: UByte, packet: UDPPacket) {
-            packets[idx.toInt()] = packet
-        }
-
-        val count get() = packets.size.toUByte()
-    }
 
     data class ConnectionState(
         val windows: ConcurrentSkipListMap<ULong, UDPWindow> = ConcurrentSkipListMap(),
@@ -110,31 +89,35 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                     }
 
                     if (window == null) {
-                        if (packet.window == 1.toUByte()) {
-                            yield(
-                                UDPRequest(
-                                    data = packet.chunk,
-                                    address = datagram.socketAddress,
-                                    packetCount = state.packetCount
+                        if (packet.sequenceID > packet.window) continue@loop // TODO: send error message back
+                        when(packet.window.toInt()) {
+                            0 -> continue@loop
+                            1 -> {
+                                yield(
+                                    UDPRequest(
+                                        data = packet.chunk,
+                                        address = datagram.socketAddress,
+                                        packetCount = state.packetCount
+                                    )
                                 )
-                            )
-                            if (packet.packetID == 0UL) state.packetCount = packet.packetID
-                            else state.packetCount = packet.packetID.coerceAtLeast(state.packetCount)
-                        } else {
-                            val newBlob = UDPWindow(packet.window)
-                            if (packet.sequenceID > packet.window) continue@loop // TODO: send error message back
-
-                            timeout.timeout(
-                                Timeout.Window(datagram.socketAddress, packet.packetID),
-                                after = WINDOW_TIMEOUT
-                            ) {
-                                it as Timeout.Window
-                                parts[it.address]?.windows?.remove(it.packetID)
+                                if (packet.packetID == 0UL) state.packetCount = packet.packetID
+                                else state.packetCount = packet.packetID.coerceAtLeast(state.packetCount)
                             }
+                            else -> {
+                                val newWindow = UDPWindow(packet.window)
 
-                            newBlob[packet.sequenceID] = packet
-                            newBlob.received++
-                            state.windows[packet.packetID] = newBlob
+                                timeout.timeout(
+                                    Timeout.Window(datagram.socketAddress, packet.packetID),
+                                    after = WINDOW_TIMEOUT
+                                ) {
+                                    it as Timeout.Window
+                                    parts[it.address]?.windows?.remove(it.packetID)
+                                }
+
+                                newWindow[packet.sequenceID] = packet
+                                newWindow.received++
+                                state.windows[packet.packetID] = newWindow
+                            }
                         }
                     } else {
                         if (packet.window != window.count) continue@loop // TODO: send error message back
@@ -227,7 +210,7 @@ fun UDPServer.serve() = serve { (data, address, packetCount) ->
                 }
                 is Either.Left -> {
                     val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
-                    Packet(clientID = 0u, message = response, packetID = request.a.packetID)
+                    Packet(clientID = 0u, message = response, packetID = request.a.packetID ?: 0UL)
                 }
             }, address
         )
@@ -259,7 +242,7 @@ fun UDPServer.serve(key: Key, cipher: Cipher) = serve { (data, address, packetCo
                 is Either.Left -> {
                     val response =
                         Response.Error(request.a.message ?: "").toMessage().handleWithThrow().encrypted(key, cipher)
-                    Packet(clientID = 0u, message = response, packetID = request.a.packetID)
+                    Packet(clientID = 0u, message = response, packetID = request.a.packetID ?: 0UL)
                 }
             }, address
         )

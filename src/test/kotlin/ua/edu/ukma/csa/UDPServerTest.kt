@@ -51,8 +51,8 @@ class UDPServerTest {
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
-        val (_, _, _, chunk, chunkSize, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
-        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkSize)
+        val (_, _, _, chunk, chunkLength, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
+        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkLength)
         assertRight(MessageType.ERR, responsePacket.map { it.message.type })
     }
 
@@ -67,8 +67,8 @@ class UDPServerTest {
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
-        val (_, _, _, chunk, chunkSize, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
-        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkSize)
+        val (_, _, _, chunk, chunkLength, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
+        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkLength)
         assertRight(MessageType.OK, responsePacket.map { it.message.type })
     }
 
@@ -89,8 +89,8 @@ class UDPServerTest {
             .forEach(socket::send)
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
-        val (_, _, _, chunk, chunkSize, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
-        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkSize)
+        val (_, _, _, chunk, chunkLength, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
+        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkLength)
         assertRight(MessageType.OK, responsePacket.map { it.message.type })
     }
 
