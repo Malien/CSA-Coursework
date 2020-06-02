@@ -27,7 +27,7 @@ val ByteBuffer.uByte get() = get().toUByte()
 val ByteBuffer.uShort get() = short.toUShort()
 
 @ExperimentalUnsignedTypes
-val ByteBuffer.uInt get() = short.toUInt()
+val ByteBuffer.uInt get() = int.toUInt()
 
 @ExperimentalUnsignedTypes
-val ByteBuffer.uLong get() = short.toULong()
+val ByteBuffer.uLong get() = long.toULong()
