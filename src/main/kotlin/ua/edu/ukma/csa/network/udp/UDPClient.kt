@@ -4,7 +4,9 @@ import arrow.core.Either
 import arrow.core.Left
 import arrow.core.flatMap
 import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.protobuf.ProtoBuf
+import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
 import ua.edu.ukma.csa.kotlinx.serialization.fload
 import ua.edu.ukma.csa.network.*
 import java.io.IOException
@@ -21,11 +23,11 @@ import kotlin.coroutines.suspendCoroutine
 
 // TODO: Add timeouts
 
-sealed class UDPClient(protected val serverAddress: SocketAddress) : Client {
+sealed class UDPClient(protected val serverAddress: SocketAddress, private val userID: UInt) : Client {
     protected val socket = DatagramSocket(0)
 
     data class Handler<R : Response>(
-        val continuation: Continuation<Either<NetworkError, Response>>,
+        val continuation: Continuation<Either<FetchError, Response>>,
         val packet: Packet<Message.Decrypted>,
         val responseDeserializer: DeserializationStrategy<R>,
         val resendBehind: Boolean,
@@ -55,8 +57,8 @@ sealed class UDPClient(protected val serverAddress: SocketAddress) : Client {
             when (packet.message.type) {
                 MessageType.ERR -> {
                     val response = ProtoBuf.fload(Response.Error.serializer(), packet.message.message)
-                        .mapLeft { NetworkError.Serialization(it) }
-                        .flatMap { Left(NetworkError.ServerResponse(it)) }
+                        .mapLeft { FetchError.Serialization(it) }
+                        .flatMap { Left(FetchError.ServerResponse(it)) }
                     handler.continuation.resume(response)
                 }
                 MessageType.PACKET_BEHIND -> {
@@ -67,14 +69,14 @@ sealed class UDPClient(protected val serverAddress: SocketAddress) : Client {
                         send(newPacket)
                     } else {
                         val response = ProtoBuf.fload(Response.Error.serializer(), packet.message.message)
-                            .mapLeft { NetworkError.Serialization(it) }
-                            .flatMap { Left(NetworkError.PacketBehind(packet.packetID)) }
+                            .mapLeft { FetchError.Serialization(it) }
+                            .flatMap { Left(FetchError.PacketBehind(packet.packetID)) }
                         handler.continuation.resume(response)
                     }
                 }
                 else -> {
                     val response = ProtoBuf.fload(handler.responseDeserializer, packet.message.message)
-                        .mapLeft { NetworkError.Serialization(it) }
+                        .mapLeft { FetchError.Serialization(it) }
                     handler.continuation.resume(response)
                 }
             }
@@ -138,22 +140,28 @@ sealed class UDPClient(protected val serverAddress: SocketAddress) : Client {
     }
 
     @Suppress("UNCHECKED_CAST")
-    override suspend fun <R : Response> request(
-        message: Message.Decrypted,
-        responseDeserializer: DeserializationStrategy<R>,
+    override suspend fun <Req : Request, Res : Response> fetch(
+        request: Req,
+        requestSerializer: SerializationStrategy<Req>,
+        responseDeserializer: DeserializationStrategy<Res>,
         resendBehind: Boolean,
         retries: UInt
-    ): Either<NetworkError, R> = suspendCoroutine { continuation ->
+    ): Either<FetchError, Res> {
+        val message = request.toMessage(requestSerializer, userID)
+            .mapLeft { FetchError.Serialization(it) }
+            .unwrap { return@fetch it }
         val id = packetID.incrementAndGet().toULong()
         val packet = Packet(clientID = CLIENT_ID, message = message, packetID = id)
-        handlers[id] = Handler(
-            continuation as Continuation<Either<NetworkError, Response>>,
-            packet,
-            responseDeserializer as DeserializationStrategy<Response>,
-            resendBehind,
-            retries
-        )
-        send(packet)
+        return suspendCoroutine { continuation ->
+            handlers[id] = Handler(
+                continuation as Continuation<Either<FetchError, Response>>,
+                packet,
+                responseDeserializer as DeserializationStrategy<Response>,
+                resendBehind,
+                retries
+            )
+            send(packet)
+        }
     }
 
     override fun close() {
@@ -162,8 +170,8 @@ sealed class UDPClient(protected val serverAddress: SocketAddress) : Client {
         socket.close()
     }
 
-    class Decrypted(serverAddress: SocketAddress) : UDPClient(serverAddress) {
-        constructor(address: InetAddress, port: Int) : this(InetSocketAddress(address, port))
+    class Decrypted(serverAddress: SocketAddress, userID: UInt) : UDPClient(serverAddress, userID) {
+        constructor(address: InetAddress, port: Int, userID: UInt) : this(InetSocketAddress(address, port), userID)
 
         override fun parsePacket(
             data: ByteArray,
@@ -174,10 +182,11 @@ sealed class UDPClient(protected val serverAddress: SocketAddress) : Client {
         override fun send(packet: Packet<Message.Decrypted>) = socket.send(packet, to = serverAddress)
     }
 
-    class Encrypted(serverAddress: SocketAddress, private val key: Key, private val cipher: Cipher) :
-        UDPClient(serverAddress) {
-        constructor(address: InetAddress, port: Int, key: Key, cipher: Cipher) : this(
+    class Encrypted(serverAddress: SocketAddress, userID: UInt, private val key: Key, private val cipher: Cipher) :
+        UDPClient(serverAddress, userID) {
+        constructor(address: InetAddress, port: Int, userID: UInt, key: Key, cipher: Cipher) : this(
             InetSocketAddress(address, port),
+            userID,
             key,
             cipher
         )
