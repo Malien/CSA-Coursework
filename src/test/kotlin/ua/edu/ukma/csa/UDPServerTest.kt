@@ -1,10 +1,7 @@
 package ua.edu.ukma.csa
 
-import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.kotlinx.peek
@@ -22,10 +19,9 @@ class UDPServerTest {
 
     private val server = UDPServer(0)
     private var initialized = false
-    private val socket = DatagramSocket(0)
+    private lateinit var socket: DatagramSocket
 
     init {
-        socket.soTimeout = 1000
         thread {
             initialized = true
             server.serve()
@@ -40,6 +36,12 @@ class UDPServerTest {
     @BeforeAll
     fun waitInitialization() {
         while (!initialized) Thread.yield()
+    }
+
+    @BeforeEach
+    fun initSocket() {
+        socket = DatagramSocket(0)
+        socket.soTimeout = 1000
     }
 
     @Test
