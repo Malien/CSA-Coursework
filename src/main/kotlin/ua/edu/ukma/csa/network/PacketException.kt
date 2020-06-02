@@ -8,7 +8,7 @@ enum class CRCType { HEADER, MESSAGE }
 sealed class PacketException(message: String, val packetID: Long = 0) : RuntimeException(message) {
     /**
      * Error that signifies an invalid CRC when decoding a packet.
-     * @param type whether error occurred in the HEADER crc field or in th MESSAGE
+     * @param type whether error occurred in the [header][CRCType.HEADER] crc field or in the [message][CRCType.MESSAGE]
      * @param expected crc value that was expected
      * @param got crc value that was encoded into the message
      */
@@ -17,10 +17,11 @@ sealed class PacketException(message: String, val packetID: Long = 0) : RuntimeE
 
     /**
      * Error that signifies an invalid magic byte
-     * @param wrongMagic byte that was received instead of magic byte
+     * @param expected byte that was expected as a magic byte
+     * @param got byte that was received instead of magic byte
      */
-    data class Magic(val expected: Byte, val wrongMagic: Byte) :
-        PacketException("Wrong magic number. Expected $expected, got $wrongMagic")
+    data class Magic(val expected: Byte, val got: Byte) :
+        PacketException("Wrong magic number. Expected $expected, got $got")
 
     /**
      * Error that signifies an invalid packet or message length

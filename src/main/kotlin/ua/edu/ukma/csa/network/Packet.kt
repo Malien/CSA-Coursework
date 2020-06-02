@@ -14,7 +14,7 @@ import java.nio.ByteBuffer
 /**
  * Class that represents a packet that is to be transmitted or received over the network
  *
- * @param M type of a message that packet contains within
+ * @param M type of a [message][Message] that packet contains within
  */
 data class Packet<M : Message>(
     val magic: Byte = MAGIC,
@@ -106,13 +106,16 @@ data class Packet<M : Message>(
         /**
          * Decodes byte array into a packet object.
          * Takes a reified generic type parameter M, which determines which type of message should be produced.
-         * M has to be an subclass of Message.
-         * For e.g. decode<Message.Encrypted> will produce a packet with an encrypted message inside,
-         * where is decode<Message.Decrypted> will produce a packet with a decrypted one
+         * M has to be an subclass of [Message].
+         *
+         * For e.g.
+         * `decode<Message.Encrypted>` will produce a packet with an [encrypted message][Message.Encrypted] inside,
+         * where is `decode<Message.Decrypted>` will produce a packet with a [decrypted one][Message.Decrypted]
+         *
          * @param bytes an byte array from which message is to be decoded
          * @param offset an offset into an array, from where packet bytes begin
          * @param length a length of serialized packet
-         * @return Either an PacketException in case of an error or Packet<M> in case of successful deserialization
+         * @return [Either] an [PacketException] in case of an error or Packet<M> in case of successful deserialization
          */
         inline fun <reified M : Message> decode(
             bytes: ByteArray,
@@ -153,12 +156,15 @@ data class Packet<M : Message>(
         /**
          * Decodes a packet object from the stream.
          * Takes a reified generic type parameter M, which determines which type of message should be produced.
-         * M has to be an subclass of Message.
-         * For e.g. from<Message.Encrypted> will produce a packet with an encrypted message inside,
-         * where is from<Message.Decrypted> will produce a packet with a decrypted one
-         * @param stream stream from which decode packet
+         * M has to be an subclass of [Message].
+         *
+         * For e.g.
+         * `from<Message.Encrypted>` will produce a packet with an [encrypted message][Message.Encrypted] inside,
+         * where is `from<Message.Decrypted>` will produce a packet with a [decrypted one][Message.Decrypted]
+         *
+         * @param stream stream from which decode packet. _Default is `true`_
          * @param seekMagic whether or not to look for a magic byte before attempting to decode a packet
-         * @return Either an PacketException in case of an error or Packet<M> in case of successful deserialization
+         * @return [Either] an [PacketException] in case of an error or Packet<M> in case of successful deserialization
          */
         inline fun <reified M : Message> from(
             stream: DataInputStream,
@@ -199,7 +205,7 @@ data class Packet<M : Message>(
         /**
          * Converts a stream to a sequence of packets
          * @param stream stream from which packets will be decoded
-         * @return a sequence of either a packet exception or a packet itself
+         * @return a sequence of [Either] a [PacketException] or a [Packet] itself
          */
         inline fun <reified M : Message> sequenceFrom(stream: InputStream) = sequence {
             val data = DataInputStream(stream)

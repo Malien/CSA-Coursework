@@ -12,9 +12,9 @@ import javax.crypto.spec.IvParameterSpec
 /**
  * Class that contains domain specific data.
  *
- * Contains two variants: <pre>Message.Encrypted</pre> and <pre>Message.Decrypted</pre>.
- * Encryption only affects <pre>message</pre> field.
- * <pre>type</pre> and <pre>userID</pre> stays unencrypted no matter what.
+ * Contains two variants: [Message.Encrypted] and [Message.Decrypted].
+ * Encryption only affects `message` field.
+ * `type` and `userID` stays unencrypted no matter what.
  */
 sealed class Message(
     val type: MessageType,
@@ -65,7 +65,7 @@ sealed class Message(
     /**
      * Representation of unencrypted message.
      *
-     * Contains <pre>encrypted</pre> method for producing encrypted version of said message.
+     * Contains `encrypted` method for producing encrypted version of said message.
      */
     class Decrypted(
         type: MessageType,
@@ -78,8 +78,8 @@ sealed class Message(
          * @param encryptionKey key which will be used for encryption
          * @param cipher specified to encrypt message
          * @param iv initialization vector used to offset message when encrypting.
-         * Defaults to <pre>IvParameterSpec(ByteArray(16))</pre>
-         * @return encrypted message of type Message.Encrypted
+         * _Defaults to `IvParameterSpec(ByteArray(16))`_
+         * @return encrypted message of type [Message.Encrypted]
          */
         fun encrypted(
             encryptionKey: Key,
@@ -108,7 +108,7 @@ sealed class Message(
     /**
      * Representation of encrypted message.
      *
-     * Contains <pre>decrypted</pre> method for producing unencrypted version of said message.
+     * Contains `decrypted` method for producing unencrypted version of said message.
      */
     class Encrypted(
         type: MessageType,
@@ -136,8 +136,8 @@ sealed class Message(
          * @param decryptionKey key which will be used for decryption
          * @param cipher specified to decrypt message
          * @param iv initialization vector used to offset message when decrypting.
-         * Defaults to <pre>IvParameterSpec(ByteArray(16))</pre>
-         * @return decrypted message of type Message.Decrypted
+         * _Defaults to `IvParameterSpec(ByteArray(16))`_
+         * @return decrypted message of type [Message.Decrypted]
          */
         fun decrypted(
             decryptionKey: Key,
@@ -179,10 +179,12 @@ sealed class Message(
         /**
          * Decodes message from an array of bytes, starting at offset and end is specified by length
          *
-         *  Takes a reified generic type parameter M, which determines which type of message should be produced.
-         *  M has to be an subclass of Message.
-         *  For e.g. decode<Message.Encrypted> will produce an encrypted message,
-         *  where is decode<Message.Decrypted> will produce a decrypted one
+         * Takes a reified generic type parameter M, which determines which type of message should be produced.
+         * M has to be an subclass of [Message].
+         *
+         * For e.g. * `decode<Message.Encrypted>` will produce a [encrypted message][Message.Encrypted] ,
+         * where is `decode<Message.Decrypted>` will produce a [decrypted one][Message.Decrypted]
+         *
          *  @param bytes an array from which message supposed to be decoded
          *  @param offset offset to an provided array. Default is 0
          *  @param length length of data to be decoded from array. Default is bytes.size
