@@ -19,9 +19,8 @@ import kotlin.math.ceil
  * @param to where to send said packet
  * @return [Either] [RuntimeException] that signifies that packet is too large, or a [Unit]
  */
-@ExperimentalUnsignedTypes
 inline fun <reified M : Message> DatagramSocket.send(packet: Packet<M>, to: SocketAddress) =
-    splitData(packet.data, packetID = packet.packetID.toULong()).map { list ->
+    splitData(packet.data, packetID = packet.packetID).map { list ->
         list.asSequence()
             .map { it.data }
             .map { DatagramPacket(it, it.size, to) }
@@ -35,7 +34,6 @@ inline fun <reified M : Message> DatagramSocket.send(packet: Packet<M>, to: Sock
  * @param offset offset into the data array. Default is `0`
  * @param length length of the data in array. Default is `data.size`
  */
-@ExperimentalUnsignedTypes
 fun splitData(
     data: ByteArray,
     packetID: ULong,

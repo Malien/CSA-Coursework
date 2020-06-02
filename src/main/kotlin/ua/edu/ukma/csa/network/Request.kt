@@ -2,8 +2,8 @@ package ua.edu.ukma.csa.network
 
 import kotlinx.serialization.*
 import kotlinx.serialization.protobuf.ProtoBuf
+import ua.edu.ukma.csa.kotlinx.java.util.UUIDSerializer
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
-import ua.edu.ukma.csa.kotlinx.util.UUIDSerializer
 import java.util.*
 
 @Serializable
@@ -32,10 +32,10 @@ sealed class Request(@Transient val messageType: MessageType = MessageType.ERR) 
 
 }
 
-inline fun <reified T : Request> T.toMessage(userID: Int = 0) =
+inline fun <reified T : Request> T.toMessage(userID: UInt = 0u) =
     serialize().map { Message.Decrypted(messageType, userID, message = it) }
 
-fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: Int = 0) =
+fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: UInt = 0u) =
     serialize(serializer).map { Message.Decrypted(messageType, userID, message = it) }
 
 @OptIn(ImplicitReflectionSerializer::class)

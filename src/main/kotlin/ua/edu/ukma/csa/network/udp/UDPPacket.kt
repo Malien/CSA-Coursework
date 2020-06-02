@@ -3,7 +3,7 @@ package ua.edu.ukma.csa.network.udp
 import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
-import ua.edu.ukma.csa.kotlinx.util.*
+import ua.edu.ukma.csa.kotlinx.java.util.*
 import ua.edu.ukma.csa.network.PacketException
 import ua.edu.ukma.csa.network.udp.UDPPacket.Companion.MAGIC
 import ua.edu.ukma.csa.network.udp.UDPPacket.Companion.PACKET_BODY
@@ -28,7 +28,6 @@ import java.nio.ByteBuffer
  *                 window should have the same `packetID`
  * @param chunk the body of packet
  */
-@ExperimentalUnsignedTypes
 data class UDPPacket(
     val window: UByte,
     val sequenceID: UByte,

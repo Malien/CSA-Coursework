@@ -16,6 +16,7 @@ import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 
+@ExperimentalUnsignedTypes
 internal class PacketTest {
 
     private lateinit var message: Message.Decrypted
@@ -32,12 +33,12 @@ internal class PacketTest {
 
     @BeforeEach
     fun setup() {
-        message = Message.Decrypted(type = MessageType.OK, userID = 2, message = "hello".toByteArray())
+        message = Message.Decrypted(type = MessageType.OK, userID = 2u, message = "hello".toByteArray())
     }
 
     @Test
     fun decode() {
-        val packet = Packet(clientID = 4, message = message, packetID = 5)
+        val packet = Packet(clientID = 4u, message = message, packetID = 5u)
         val decoded = Packet.decode<Message.Decrypted>(packet.data)
         assertRight(packet, decoded)
     }
@@ -45,7 +46,7 @@ internal class PacketTest {
     @Test
     fun decodeEncrypted() {
         val encryptedMessage = message.encrypted(key, cipher)
-        val packet = Packet(clientID = 4, message = encryptedMessage, packetID = 5)
+        val packet = Packet(clientID = 4u, message = encryptedMessage, packetID = 5u)
         val decoded = Packet.decode<Message.Encrypted>(packet.data)
         val decryptedMessage = decoded.map { it.message.decrypted(key, cipher) }
         assertRight(message, decryptedMessage)
@@ -59,7 +60,7 @@ internal class PacketTest {
 
     @Test
     fun decodeIncomplete() {
-        val packet = Packet(clientID = 4, message = message, packetID = 5)
+        val packet = Packet(clientID = 4u, message = message, packetID = 5u)
         val decoded = packet.data.copyOfRange(0, packet.size - 2)
         assertLeftType<PacketException.Length>(Packet.decode<Message.Decrypted>(decoded))
     }
@@ -67,10 +68,10 @@ internal class PacketTest {
     @Test
     fun decodeWrongMessageSize() {
         val packet = Packet(
-            clientID = 1,
-            packetID = 2,
+            clientID = 1u,
+            packetID = 2u,
             messageLength = message.size - 1,
-            headerCRC = calculateHeaderCRC(0x14, 1, 2, messageLength = message.size),
+            headerCRC = calculateHeaderCRC(0x14, 1u, 2u, messageLength = message.size),
             message = message,
             messageCRC = calculateMessageCRC(message)
         )
@@ -81,10 +82,10 @@ internal class PacketTest {
     fun decodeWrongMagic() {
         val packet = Packet(
             magic = 0x14,
-            clientID = 1,
-            packetID = 2,
+            clientID = 1u,
+            packetID = 2u,
             messageLength = message.size,
-            headerCRC = calculateHeaderCRC(0x14, 1, 2, messageLength = message.size),
+            headerCRC = calculateHeaderCRC(0x14, 1u, 2u, messageLength = message.size),
             message = message,
             messageCRC = calculateMessageCRC(message)
         )
@@ -94,8 +95,8 @@ internal class PacketTest {
     @Test
     fun decodeWrongHeaderCRC() {
         val packet = Packet(
-            clientID = 1,
-            packetID = 2,
+            clientID = 1u,
+            packetID = 2u,
             messageLength = message.size,
             headerCRC = 0,
             message = message,
@@ -107,10 +108,10 @@ internal class PacketTest {
     @Test
     fun decodeWrongMessageCRC() {
         val packet = Packet(
-            clientID = 1,
-            packetID = 2,
+            clientID = 1u,
+            packetID = 2u,
             messageLength = message.size,
-            headerCRC = calculateHeaderCRC(0x14, 1, 2, messageLength = message.size),
+            headerCRC = calculateHeaderCRC(0x14, 1u, 2u, messageLength = message.size),
             message = message,
             messageCRC = 0
         )
@@ -121,8 +122,8 @@ internal class PacketTest {
     fun decodeMultiple() {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
-            .map { Message.Decrypted(type = MessageType.OK, userID = 2, message = it.toByteArray()) }
-            .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
+            .map { Message.Decrypted(type = MessageType.OK, userID = 2u, message = it.toByteArray()) }
+            .mapIndexed { idx, message -> Packet(clientID = 3u, message = message, packetID = idx.toULong()) }
             .map { it.data }
             .reduce { acc, data ->
                 ByteArray(acc.size + data.size).also {
@@ -144,13 +145,13 @@ internal class PacketTest {
             .map {
                 Message.Encrypted(
                     type = MessageType.OK,
-                    userID = 2,
+                    userID = 2u,
                     message = it.toByteArray(),
                     key = key,
                     cipher = cipher
                 )
             }
-            .mapIndexed { idx, message -> Packet(clientID = 3, message = message, packetID = idx.toLong()) }
+            .mapIndexed { idx, message -> Packet(clientID = 3u, message = message, packetID = idx.toULong()) }
             .map { it.data }
             .reduce { acc, data ->
                 ByteArray(acc.size + data.size).also {

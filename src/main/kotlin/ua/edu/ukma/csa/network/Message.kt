@@ -4,6 +4,8 @@ import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
 import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
+import ua.edu.ukma.csa.kotlinx.java.util.putInt
+import ua.edu.ukma.csa.kotlinx.java.util.uInt
 import java.nio.ByteBuffer
 import java.security.Key
 import javax.crypto.Cipher
@@ -18,7 +20,7 @@ import javax.crypto.spec.IvParameterSpec
  */
 sealed class Message(
     val type: MessageType,
-    val userID: Int,
+    val userID: UInt,
     val message: ByteArray = ByteArray(0)
 ) {
     /**
@@ -55,7 +57,7 @@ sealed class Message(
 
     override fun hashCode(): Int {
         var result = type.hashCode()
-        result = 31 * result + userID
+        result = 31 * result + userID.toInt()
         result = 31 * result + (message.contentHashCode())
         return result
     }
@@ -69,7 +71,7 @@ sealed class Message(
      */
     class Decrypted(
         type: MessageType,
-        userID: Int,
+        userID: UInt,
         message: ByteArray = ByteArray(0)
     ) : Message(type, userID, message) {
 
@@ -112,7 +114,7 @@ sealed class Message(
      */
     class Encrypted(
         type: MessageType,
-        userID: Int,
+        userID: UInt,
         encryptedMessage: ByteArray
     ) : Message(type, userID, encryptedMessage) {
 
@@ -121,7 +123,7 @@ sealed class Message(
          */
         constructor(
             type: MessageType,
-            userID: Int,
+            userID: UInt,
             message: ByteArray = ByteArray(0),
             key: Key,
             cipher: Cipher,
@@ -202,7 +204,7 @@ sealed class Message(
             val type = MessageType.fromID(typeID).unwrap {
                 return@decode Left(PacketException.InvalidType(typeID))
             }
-            val userID = buffer.int
+            val userID = buffer.uInt
             val message = ByteArray(length - 8)
             buffer.get(message)
 

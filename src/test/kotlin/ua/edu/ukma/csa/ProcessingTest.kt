@@ -28,13 +28,14 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import kotlin.concurrent.thread
 
+@ExperimentalUnsignedTypes
 class ProcessingTest {
 
     private val random = Random()
 
-    private var packetID = 0L
-    private var userID = 0
-    private var clientID: Byte = 0
+    private var packetID = 0uL
+    private var userID = 0u
+    private var clientID: UByte = 0u
 
     private val key: Key
     private val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
@@ -48,9 +49,9 @@ class ProcessingTest {
 
     @BeforeEach
     fun randomize() {
-        packetID = random.nextLong(1, Long.MAX_VALUE)
-        userID = random.nextInt(1, Int.MAX_VALUE)
-        clientID = random.nextByte(1, Byte.MAX_VALUE)
+        packetID = random.nextLong(1, Long.MAX_VALUE).toULong()
+        userID = random.nextInt(1, Int.MAX_VALUE).toUInt()
+        clientID = random.nextByte(1, Byte.MAX_VALUE).toUByte()
     }
 
     private lateinit var biscuit: Product
@@ -121,7 +122,7 @@ class ProcessingTest {
     fun validStreamedRequests() {
         val bytes = generateSequence { GetQuantity(biscuit.id) }
             .map { it.toMessage(userID).handleWithThrow() }
-            .mapIndexed { idx, message -> Packet(clientID, message, packetID = idx.toLong()) }
+            .mapIndexed { idx, message -> Packet(clientID, message, packetID = idx.toULong()) }
             .map { it.data }
             .take(10) // Arbitrary amount
             .reduce { acc, bytes ->
@@ -150,7 +151,7 @@ class ProcessingTest {
         val bytes = generateSequence { GetQuantity(biscuit.id) }
             .map { it.toMessage(userID).handleWithThrow() }
             .map { it.encrypted(key, cipher) }
-            .mapIndexed { idx, message -> Packet(clientID, message, idx.toLong()) }
+            .mapIndexed { idx, message -> Packet(clientID, message, idx.toULong()) }
             .map { it.data }
             .take(10) // Arbitrary amount
             .reduce { acc, bytes ->
@@ -212,7 +213,7 @@ class ProcessingTest {
                     val bytes = request
                         .map { it.handleWithThrow() }
                         .map { it.encrypted(key, localCipher) }
-                        .mapIndexed { idx, message -> Packet(clientID, message, idx.toLong()) }
+                        .mapIndexed { idx, message -> Packet(clientID, message, idx.toULong()) }
                         .map { it.data }
                         .reduce { acc, bytes ->
                             ByteArray(acc.size + bytes.size).also {

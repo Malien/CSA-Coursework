@@ -6,6 +6,10 @@ import arrow.core.Right
 import com.github.snksoft.crc.CRC.Parameters
 import com.github.snksoft.crc.CRC.calculateCRC
 import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
+import ua.edu.ukma.csa.kotlinx.java.util.put
+import ua.edu.ukma.csa.kotlinx.java.util.putLong
+import ua.edu.ukma.csa.kotlinx.java.util.uByte
+import ua.edu.ukma.csa.kotlinx.java.util.uLong
 import java.io.DataInputStream
 import java.io.EOFException
 import java.io.InputStream
@@ -18,14 +22,14 @@ import java.nio.ByteBuffer
  */
 data class Packet<M : Message>(
     val magic: Byte = MAGIC,
-    val clientID: Byte,
-    val packetID: Long = 0,
+    val clientID: UByte,
+    val packetID: ULong = 0UL,
     val messageLength: Int,
     val headerCRC: Short,
     val message: M,
     val messageCRC: Short
 ) {
-    constructor(clientID: Byte, message: M, packetID: Long = 0) : this(
+    constructor(clientID: UByte, message: M, packetID: ULong = 0UL) : this(
         clientID = clientID,
         packetID = packetID,
         messageLength = message.size,
@@ -77,7 +81,7 @@ data class Packet<M : Message>(
 
     override fun hashCode(): Int {
         var result = magic.toInt()
-        result = 31 * result + clientID
+        result = 31 * result + clientID.toByte()
         result = 31 * result + packetID.hashCode()
         result = 31 * result + messageLength
         result = 31 * result + headerCRC
@@ -89,7 +93,7 @@ data class Packet<M : Message>(
     companion object {
         const val MAGIC: Byte = 0x13
 
-        fun headerData(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int): ByteArray =
+        fun headerData(magic: Byte, clientID: UByte, packetID: ULong, messageLength: Int): ByteArray =
             ByteBuffer.allocate(14)
                 .put(magic)
                 .put(clientID)
@@ -97,7 +101,7 @@ data class Packet<M : Message>(
                 .putInt(messageLength)
                 .array()
 
-        fun calculateHeaderCRC(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int) =
+        fun calculateHeaderCRC(magic: Byte, clientID: UByte, packetID: ULong, messageLength: Int) =
             calculateCRC(Parameters.CRC16, headerData(magic, clientID, packetID, messageLength)).toShort()
 
         fun calculateMessageCRC(message: Message) =
@@ -129,8 +133,8 @@ data class Packet<M : Message>(
             val magic = buffer.get()
             if (magic != MAGIC) return Left(PacketException.Magic(MAGIC, magic))
 
-            val clientID = buffer.get()
-            val packetID = buffer.long
+            val clientID = buffer.uByte
+            val packetID = buffer.uLong
             val messageLength = buffer.int
 
             val headerCRC = buffer.short
@@ -178,8 +182,8 @@ data class Packet<M : Message>(
                 stream.readByte()
             }
 
-            val clientID = stream.readByte()
-            val packetID = stream.readLong()
+            val clientID = stream.readByte().toUByte()
+            val packetID = stream.readLong().toULong()
             val messageLength = stream.readInt()
             val headerCRC = stream.readShort()
             val messageData = ByteArray(messageLength)

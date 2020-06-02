@@ -13,8 +13,8 @@ import java.util.*
 import kotlin.concurrent.thread
 import kotlin.random.nextInt
 
-@ExperimentalUnsignedTypes
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExperimentalUnsignedTypes
 class UDPServerTest {
 
     private val server = UDPServer(0)
@@ -46,8 +46,8 @@ class UDPServerTest {
 
     @Test
     fun `should transfer packet`() {
-        val request = Request.GetQuantity(UUID.randomUUID()).toMessage(1).handleWithThrow()
-        val packet = Packet(clientID = 2, message = request, packetID = 3)
+        val request = Request.GetQuantity(UUID.randomUUID()).toMessage(1u).handleWithThrow()
+        val packet = Packet(clientID = 2u, message = request, packetID = 3u)
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
@@ -62,8 +62,8 @@ class UDPServerTest {
             .take(2048)
             .map { it.toChar() }
             .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(1).handleWithThrow()
-        val packet = Packet(clientID = 2, message = request, packetID = 4)
+        val request = Request.AddGroup(randomString).toMessage(1u).handleWithThrow()
+        val packet = Packet(clientID = 2u, message = request, packetID = 4u)
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
@@ -78,8 +78,8 @@ class UDPServerTest {
             .take(2048)
             .map { it.toChar() }
             .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(1).handleWithThrow()
-        val packet = Packet(clientID = 2, message = request, packetID = 4)
+        val request = Request.AddGroup(randomString).toMessage(1u).handleWithThrow()
+        val packet = Packet(clientID = 2u, message = request, packetID = 4u)
         splitData(packet.data, packetID = packet.packetID.toULong())
             .handleWithThrow()
             .shuffled()
@@ -100,8 +100,8 @@ class UDPServerTest {
             .take(2048)
             .map { it.toChar() }
             .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(1).handleWithThrow()
-        val packet = Packet(clientID = 2, message = request, packetID = 4)
+        val request = Request.AddGroup(randomString).toMessage(1u).handleWithThrow()
+        val packet = Packet(clientID = 2u, message = request, packetID = 4u)
         splitData(packet.data, packetID = packet.packetID.toULong())
             .handleWithThrow()
             .asSequence()

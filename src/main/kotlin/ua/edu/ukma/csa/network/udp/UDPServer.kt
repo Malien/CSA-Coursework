@@ -30,7 +30,6 @@ import kotlin.concurrent.thread
  *                    _Default is `0.0.0.0` (accessible from anywhere)_
  * @throws SocketException if socket cannot bind to specified address or port
  */
-@ExperimentalUnsignedTypes
 class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0.0.0")) : Closeable {
     val socket = DatagramSocket(port, bindAddress)
 
@@ -220,14 +219,14 @@ fun UDPServer.serve() = serve { (data, address, packetCount) ->
         socket.send(
             when (val request = Packet.decode<Message.Decrypted>(data)) {
                 is Either.Right -> {
-                    if (packetCount >= request.b.packetID.toULong()) {
+                    if (packetCount >= request.b.packetID) {
                         val response = Response.PacketBehind.toMessage().handleWithThrow()
-                        Packet(clientID = 0, message = response, packetID = request.b.packetID)
+                        Packet(clientID = 0u, message = response, packetID = request.b.packetID)
                     } else handlePacket(request.b)
                 }
                 is Either.Left -> {
                     val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
-                    Packet(clientID = 0, message = response, packetID = request.a.packetID)
+                    Packet(clientID = 0u, message = response, packetID = request.a.packetID)
                 }
             }, address
         )
@@ -251,15 +250,15 @@ fun UDPServer.serve(key: Key, cipher: Cipher) = serve { (data, address, packetCo
         socket.send(
             when (val request = Packet.decode<Message.Encrypted>(data)) {
                 is Either.Right -> {
-                    if (packetCount >= request.b.packetID.toULong()) {
+                    if (packetCount >= request.b.packetID) {
                         val response = Response.PacketBehind.toMessage().handleWithThrow().encrypted(key, cipher)
-                        Packet(clientID = 0, message = response, packetID = request.b.packetID)
+                        Packet(clientID = 0u, message = response, packetID = request.b.packetID)
                     } else handlePacket(request.b, key, cipher)
                 }
                 is Either.Left -> {
                     val response =
                         Response.Error(request.a.message ?: "").toMessage().handleWithThrow().encrypted(key, cipher)
-                    Packet(clientID = 0, message = response, packetID = request.a.packetID)
+                    Packet(clientID = 0u, message = response, packetID = request.a.packetID)
                 }
             }, address
         )

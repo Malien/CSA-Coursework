@@ -45,5 +45,6 @@ tasks {
 }
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.kotlinOptions {
-    freeCompilerArgs = listOf("-Xopt-in=kotlin.RequiresOptIn", "-Xinline-classes")
+    freeCompilerArgs =
+        listOf("-Xopt-in=kotlin.RequiresOptIn", "-Xinline-classes", "-Xopt-in=kotlin.ExperimentalUnsignedTypes")
 }
