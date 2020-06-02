@@ -124,7 +124,7 @@ data class Packet<M : Message>(
             val buffer = ByteBuffer.wrap(bytes, offset, length)
 
             val magic = buffer.get()
-            if (magic.toInt() != 0x13) return Left(PacketException.Magic(magic))
+            if (magic != MAGIC) return Left(PacketException.Magic(MAGIC, magic))
 
             val clientID = buffer.get()
             val packetID = buffer.long
@@ -180,7 +180,7 @@ data class Packet<M : Message>(
             stream.read(messageData)
             val messageCRC = stream.readShort()
 
-            if (magic.toInt() != 0x13) throw PacketException.Magic(magic)
+            if (magic != MAGIC) throw PacketException.Magic(MAGIC, magic)
 
             val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
             if (expectedHeaderCRC != headerCRC)

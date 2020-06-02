@@ -19,8 +19,8 @@ sealed class PacketException(message: String, val packetID: Long = 0) : RuntimeE
      * Error that signifies an invalid magic byte
      * @param wrongMagic byte that was received instead of magic byte
      */
-    data class Magic(val wrongMagic: Byte) :
-        PacketException("Wrong magic number. Expected 0x13, got ${Integer.toHexString(wrongMagic.toInt())}")
+    data class Magic(val expected: Byte, val wrongMagic: Byte) :
+        PacketException("Wrong magic number. Expected $expected, got $wrongMagic")
 
     /**
      * Error that signifies an invalid packet or message length

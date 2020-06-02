@@ -11,6 +11,14 @@ import java.net.DatagramSocket
 import java.net.SocketAddress
 import kotlin.math.ceil
 
+/**
+ * Send [Packet] through [DatagramSocket] to the specified address. Packet will be split up into [UDPPacket]s as a
+ * which is used as a transport medium.
+ *
+ * @param packet packet which to send through the network
+ * @param to where to send said packet
+ * @return [Either] [RuntimeException] that signifies that packet is too large, or a [Unit]
+ */
 @ExperimentalUnsignedTypes
 inline fun <reified M : Message> DatagramSocket.send(packet: Packet<M>, to: SocketAddress) =
     splitData(packet.data, packetID = packet.packetID.toULong()).map { list ->
@@ -20,12 +28,19 @@ inline fun <reified M : Message> DatagramSocket.send(packet: Packet<M>, to: Sock
             .forEach(::send)
     }
 
+/**
+ * Split chunk of data into the list of [UDPPacket]s
+ * @param data byte array that will be encoded into UDPPackets
+ * @param packetID unique identifier (usually autoincremented)
+ * @param offset offset into the data array. Default is `0`
+ * @param length length of the data in array. Default is `data.size`
+ */
 @ExperimentalUnsignedTypes
 fun splitData(
     data: ByteArray,
+    packetID: ULong,
     offset: Int = 0,
-    length: Int = data.size,
-    packetID: ULong
+    length: Int = data.size
 ): Either<RuntimeException, List<UDPPacket>> {
     if (length.toUInt() > UDPPacket.MAX_PAYLOAD_SIZE) return Left(
         RuntimeException(
