@@ -11,6 +11,7 @@ import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListMap
 import javax.crypto.Cipher
+import kotlin.concurrent.thread
 
 // TODO: Add PING - PONG
 // TODO: I don't know how well I'm handling packetID overflow
@@ -207,23 +208,26 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
  * corresponding Packet with **decrypted** message within it (aka. [Packet<Message.Decrypted>][Packet]). Every
  * successfully formed packet will be processed by handlePacket function. Every invalid packet will send a
  * [Response.Error] to the sender.
+ * @return newly created thread which handles the processing
  */
 @ExperimentalUnsignedTypes
 fun UDPServer.serve() = serve { (data, address, packetCount) ->
-    socket.send(
-        when (val request = Packet.decode<Message.Decrypted>(data)) {
-            is Either.Right -> {
-                if (packetCount >= request.b.packetID.toULong()) {
-                    val response = Response.PacketBehind.toMessage().handleWithThrow()
-                    Packet(clientID = 0, message = response, packetID = request.b.packetID)
-                } else handlePacket(request.b)
-            }
-            is Either.Left -> {
-                val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
-                Packet(clientID = 0, message = response, packetID = request.a.packetID)
-            }
-        }, address
-    )
+    thread(name = "UDP-Processing-Thread") {
+        socket.send(
+            when (val request = Packet.decode<Message.Decrypted>(data)) {
+                is Either.Right -> {
+                    if (packetCount >= request.b.packetID.toULong()) {
+                        val response = Response.PacketBehind.toMessage().handleWithThrow()
+                        Packet(clientID = 0, message = response, packetID = request.b.packetID)
+                    } else handlePacket(request.b)
+                }
+                is Either.Left -> {
+                    val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
+                    Packet(clientID = 0, message = response, packetID = request.a.packetID)
+                }
+            }, address
+        )
+    }
 }
 
 /**
@@ -235,22 +239,25 @@ fun UDPServer.serve() = serve { (data, address, packetCount) ->
  * undefined behaviour.
  * @param key key which will be used to decrypt message
  * @param cipher cipher which will be used to decrypt message. Takes ownership of cipher
+ * @return newly created thread which handles the processing
  */
 @ExperimentalUnsignedTypes
 fun UDPServer.serve(key: Key, cipher: Cipher) = serve { (data, address, packetCount) ->
-    socket.send(
-        when (val request = Packet.decode<Message.Encrypted>(data)) {
-            is Either.Right -> {
-                if (packetCount >= request.b.packetID.toULong()) {
-                    val response = Response.PacketBehind.toMessage().handleWithThrow().encrypted(key, cipher)
-                    Packet(clientID = 0, message = response, packetID = request.b.packetID)
-                } else handlePacket(request.b, key, cipher)
-            }
-            is Either.Left -> {
-                val response =
-                    Response.Error(request.a.message ?: "").toMessage().handleWithThrow().encrypted(key, cipher)
-                Packet(clientID = 0, message = response, packetID = request.a.packetID)
-            }
-        }, address
-    )
+    thread(name = "UDP-Processing-Thread") {
+        socket.send(
+            when (val request = Packet.decode<Message.Encrypted>(data)) {
+                is Either.Right -> {
+                    if (packetCount >= request.b.packetID.toULong()) {
+                        val response = Response.PacketBehind.toMessage().handleWithThrow().encrypted(key, cipher)
+                        Packet(clientID = 0, message = response, packetID = request.b.packetID)
+                    } else handlePacket(request.b, key, cipher)
+                }
+                is Either.Left -> {
+                    val response =
+                        Response.Error(request.a.message ?: "").toMessage().handleWithThrow().encrypted(key, cipher)
+                    Packet(clientID = 0, message = response, packetID = request.a.packetID)
+                }
+            }, address
+        )
+    }
 }
