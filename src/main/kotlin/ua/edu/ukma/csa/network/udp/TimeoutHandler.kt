@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.PriorityBlockingQueue
 import kotlin.concurrent.thread
 
-class TimeoutHandler<E> : Closeable {
+class TimeoutHandler<E>(private val sleepDuration: Duration = Duration.ZERO) : Closeable {
     inner class TimeoutEntity(val entity: E, val ttl: Instant, val handler: (E) -> Unit) : Comparable<TimeoutEntity> {
         operator fun component1() = entity
         operator fun component2() = ttl
@@ -34,7 +34,8 @@ class TimeoutHandler<E> : Closeable {
                     validityMap.remove(entity)
                 }
             }
-            Thread.yield()
+            if (sleepDuration == Duration.ZERO) Thread.yield()
+            else Thread.sleep(sleepDuration.toMillis(), sleepDuration.nano)
         }
     }
 

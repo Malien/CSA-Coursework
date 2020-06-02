@@ -17,6 +17,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.*
 import kotlin.concurrent.thread
+import kotlin.random.nextInt
 
 @ExperimentalUnsignedTypes
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -55,13 +56,21 @@ class UDPServerTest {
         assertRight(MessageType.ERR, responsePacket.map { it.message.type })
     }
 
-//    @Test
-//    fun `should transfer really long packet`() {
-//        val randomString = generateSequence { kotlin.random.Random.nextInt(32..126) }
-//            .take(2048)
-//            .map { it.toChar() }
-//            .joinToString(separator = "")
-//        val request = Request.AddGroup(randomString)
-//    }
+    @Test
+    fun `should transfer really long packet`() {
+        val randomString = generateSequence { kotlin.random.Random.nextInt(32..126) }
+            .take(2048)
+            .map { it.toChar() }
+            .joinToString(separator = "")
+        val request = Request.AddGroup(randomString).toMessage(1).handleWithThrow()
+        val packet = Packet(clientID = 2, message = request, packetID = 4)
+        val socket = DatagramSocket(0)
+        socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
+        val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
+        socket.receive(responseDatagram)
+        val (_, _, _, chunk, chunkSize, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
+        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkSize)
+        assertRight(MessageType.OK, responsePacket.map { it.message.type })
+    }
 
 }

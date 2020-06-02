@@ -7,6 +7,7 @@ import java.io.Closeable
 import java.io.IOException
 import java.net.*
 import java.security.Key
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListMap
 import javax.crypto.Cipher
@@ -37,6 +38,13 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
 
     private val parts = ConcurrentHashMap<SocketAddress, ConcurrentSkipListMap<ULong, UDPWindow>>()
 
+    sealed class Timeout {
+        data class User(val address: SocketAddress) : Timeout()
+        data class Window(val address: SocketAddress, val packetID: ULong) : Timeout()
+    }
+
+    private val timeout = TimeoutHandler<Timeout>()
+
     data class UDPRequest(val packet: ByteArray, val address: SocketAddress)
 
     private fun receive() = sequence {
@@ -51,6 +59,11 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                 if (packet is Either.Right) {
                     val window = parts[datagram.socketAddress]?.get(packet.b.packetID)
 
+                    timeout.timeout(Timeout.User(datagram.socketAddress), after = USER_TIMEOUT) {
+                        it as Timeout.User
+                        parts.remove(datagram.socketAddress)
+                    }
+
                     if (window == null) {
                         if (packet.b.window == 1.toUByte()) {
                             yield(UDPRequest(packet.b.chunk, datagram.socketAddress))
@@ -59,6 +72,15 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                                 parts.getOrPut(datagram.socketAddress) { ConcurrentSkipListMap<ULong, UDPWindow>() }
                             val newBlob = UDPWindow(packet.b.window)
                             if (packet.b.sequenceID > packet.b.window) continue@loop // TODO: send error message back
+
+                            timeout.timeout(
+                                Timeout.Window(datagram.socketAddress, packet.b.packetID),
+                                after = WINDOW_TIMEOUT
+                            ) {
+                                it as Timeout.Window
+                                parts[it.address]?.remove(it.packetID)
+                            }
+
                             newBlob[packet.b.sequenceID] = packet.b
                             newBlob.received++
                             userData[packet.b.packetID] = newBlob
@@ -70,7 +92,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                             window.received++
                         }
                         window[packet.b.sequenceID] = packet.b
-                        if (window.count == packet.b.window) {
+                        if (window.received == packet.b.window) {
                             val combined = ByteArray(window.packets.sumBy { it!!.size.toInt() })
                             window.packets.fold(0) { written, blobPacket ->
                                 blobPacket!!.chunk.copyInto(combined, destinationOffset = written)
@@ -99,6 +121,8 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
 
     companion object {
         const val TIMEOUT = 1000
+        val USER_TIMEOUT: Duration = Duration.ofMinutes(1)
+        val WINDOW_TIMEOUT: Duration = Duration.ofSeconds(30)
     }
 
 }
