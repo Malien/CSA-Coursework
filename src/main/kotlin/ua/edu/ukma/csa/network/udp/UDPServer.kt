@@ -89,6 +89,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
      * constant. Additionally this action will cache unfinished user packets for duration of [USER_TIMEOUT]. This will
      * run continuously until either unexpected [DatagramSocket] error is raised, or until [close] method is called.
      * @return sequence of [UDPRequest]s which contain fully formed message and address from where it came from
+     * @throws IOException if encountered unknown exception by underlying [DatagramSocket]
      */
     private fun receive() = sequence {
         val buffer = ByteArray(UDPPacket.PACKET_SIZE.toInt())
@@ -117,7 +118,8 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                                     packetCount = state.packetCount
                                 )
                             )
-                            state.packetCount = packet.b.packetID.coerceAtLeast(state.packetCount)
+                            if (packet.b.packetID == 0UL) state.packetCount = packet.b.packetID
+                            else state.packetCount = packet.b.packetID.coerceAtLeast(state.packetCount)
                         } else {
                             val newBlob = UDPWindow(packet.b.window)
                             if (packet.b.sequenceID > packet.b.window) continue@loop // TODO: send error message back
@@ -155,7 +157,8 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                                     packetCount = state.packetCount
                                 )
                             )
-                            state.packetCount = packet.b.packetID.coerceAtLeast(state.packetCount)
+                            if (packet.b.packetID == 0UL) state.packetCount = packet.b.packetID
+                            else state.packetCount = packet.b.packetID.coerceAtLeast(state.packetCount)
                         } else {
                             timeout.timeout(
                                 Timeout.Window(datagram.socketAddress, packet.b.packetID),
@@ -168,8 +171,9 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                     }
                 }
             } catch (ignore: SocketTimeoutException) {
-            } catch (ignore: IOException) {
+            } catch (e: IOException) {
                 close()
+                throw e
             }
         }
     }
