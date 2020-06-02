@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentSkipListMap
 import javax.crypto.Cipher
 
 // TODO: Add PING - PONG
+// TODO: I don't know how well I'm handling packetID overflow
 
 /**
  * Class that encapsulates serving logic through UDP protocol. It will assemble large messages and guarantee that they
@@ -60,7 +61,15 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
         val count get() = packets.size.toUByte()
     }
 
-    private val parts = ConcurrentHashMap<SocketAddress, ConcurrentSkipListMap<ULong, UDPWindow>>()
+    data class ConnectionState(
+        val windows: ConcurrentSkipListMap<ULong, UDPWindow> = ConcurrentSkipListMap(),
+        var packetCount: ULong = 0UL
+    )
+
+    // TODO: Add buffered packets to save on network traffic a bit.
+    //  For e.g. if packet 2 comes before packet 1. Wait a bit and process them in order.
+    //  Right now second packet will be processed, and first one will be told to re-send
+    private val parts = ConcurrentHashMap<SocketAddress, ConnectionState>()
 
     sealed class Timeout {
         data class User(val address: SocketAddress) : Timeout()
@@ -70,7 +79,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
     private val timeout = TimeoutHandler<Timeout>()
 
     @Suppress("ArrayInDataClass")
-    data class UDPRequest(val packet: ByteArray, val address: SocketAddress)
+    data class UDPRequest(val data: ByteArray, val address: SocketAddress, val packetCount: ULong = 0UL)
 
     /**
      * Convert all incoming packets into a sequence of [UDPRequest]s. If packet has to be combined with others to form
@@ -90,7 +99,8 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                 socket.receive(datagram)
                 val packet = UDPPacket.from(datagram)
                 if (packet is Either.Right) {
-                    val window = parts[datagram.socketAddress]?.get(packet.b.packetID)
+                    val state = parts.getOrPut(datagram.socketAddress) { ConnectionState() }
+                    val window = state?.windows?.get(packet.b.packetID)
 
                     timeout.timeout(Timeout.User(datagram.socketAddress), after = USER_TIMEOUT) {
                         it as Timeout.User
@@ -99,10 +109,15 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
 
                     if (window == null) {
                         if (packet.b.window == 1.toUByte()) {
-                            yield(UDPRequest(packet.b.chunk, datagram.socketAddress))
+                            yield(
+                                UDPRequest(
+                                    data = packet.b.chunk,
+                                    address = datagram.socketAddress,
+                                    packetCount = state.packetCount
+                                )
+                            )
+                            state.packetCount = packet.b.packetID.coerceAtLeast(state.packetCount)
                         } else {
-                            val userData =
-                                parts.getOrPut(datagram.socketAddress) { ConcurrentSkipListMap<ULong, UDPWindow>() }
                             val newBlob = UDPWindow(packet.b.window)
                             if (packet.b.sequenceID > packet.b.window) continue@loop // TODO: send error message back
 
@@ -111,12 +126,12 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                                 after = WINDOW_TIMEOUT
                             ) {
                                 it as Timeout.Window
-                                parts[it.address]?.remove(it.packetID)
+                                parts[it.address]?.windows?.remove(it.packetID)
                             }
 
                             newBlob[packet.b.sequenceID] = packet.b
                             newBlob.received++
-                            userData[packet.b.packetID] = newBlob
+                            state.windows[packet.b.packetID] = newBlob
                         }
                     } else {
                         if (packet.b.window != window.count) continue@loop // TODO: send error message back
@@ -131,15 +146,22 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                                 blobPacket!!.chunk.copyInto(combined, destinationOffset = written)
                                 written + blobPacket.chunk.size
                             }
-                            parts[datagram.socketAddress]!!.remove(packet.b.packetID)
-                            yield(UDPRequest(combined, datagram.socketAddress))
+                            state.windows.remove(packet.b.packetID)
+                            yield(
+                                UDPRequest(
+                                    data = combined,
+                                    address = datagram.socketAddress,
+                                    packetCount = state.packetCount
+                                )
+                            )
+                            state.packetCount = packet.b.packetID.coerceAtLeast(state.packetCount)
                         } else {
                             timeout.timeout(
                                 Timeout.Window(datagram.socketAddress, packet.b.packetID),
                                 after = WINDOW_TIMEOUT
                             ) {
                                 it as Timeout.Window
-                                parts[it.address]?.remove(it.packetID)
+                                state.windows.remove(it.packetID)
                             }
                         }
                     }
@@ -187,18 +209,21 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
  * [Response.Error] to the sender.
  */
 @ExperimentalUnsignedTypes
-fun UDPServer.serve() = serve { (data, address) ->
-    when (val request = Packet.decode<Message.Decrypted>(data)) {
-        is Either.Right -> {
-            val response = handlePacket(request.b)
-            socket.send(response, address)
-        }
-        is Either.Left -> {
-            val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
-            val packet = Packet(clientID = 0, message = response, packetID = request.a.packetID)
-            socket.send(packet, address)
-        }
-    }
+fun UDPServer.serve() = serve { (data, address, packetCount) ->
+    socket.send(
+        when (val request = Packet.decode<Message.Decrypted>(data)) {
+            is Either.Right -> {
+                if (packetCount >= request.b.packetID.toULong()) {
+                    val response = Response.PacketBehind.toMessage().handleWithThrow()
+                    Packet(clientID = 0, message = response, packetID = request.b.packetID)
+                } else handlePacket(request.b)
+            }
+            is Either.Left -> {
+                val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
+                Packet(clientID = 0, message = response, packetID = request.a.packetID)
+            }
+        }, address
+    )
 }
 
 /**
@@ -212,17 +237,20 @@ fun UDPServer.serve() = serve { (data, address) ->
  * @param cipher cipher which will be used to decrypt message. Takes ownership of cipher
  */
 @ExperimentalUnsignedTypes
-fun UDPServer.serve(key: Key, cipher: Cipher) = serve { (data, address) ->
-    when (val request = Packet.decode<Message.Encrypted>(data)) {
-        is Either.Right -> {
-            val response = handlePacket(request.b, key, cipher)
-            socket.send(response, address)
-        }
-        is Either.Left -> {
-            val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
-            val packet =
+fun UDPServer.serve(key: Key, cipher: Cipher) = serve { (data, address, packetCount) ->
+    socket.send(
+        when (val request = Packet.decode<Message.Encrypted>(data)) {
+            is Either.Right -> {
+                if (packetCount >= request.b.packetID.toULong()) {
+                    val response = Response.PacketBehind.toMessage().handleWithThrow().encrypted(key, cipher)
+                    Packet(clientID = 0, message = response, packetID = request.b.packetID)
+                } else handlePacket(request.b, key, cipher)
+            }
+            is Either.Left -> {
+                val response =
+                    Response.Error(request.a.message ?: "").toMessage().handleWithThrow().encrypted(key, cipher)
                 Packet(clientID = 0, message = response, packetID = request.a.packetID)
-            socket.send(packet, address)
-        }
-    }
+            }
+        }, address
+    )
 }

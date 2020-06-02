@@ -20,10 +20,12 @@ import kotlin.random.nextInt
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UDPServerTest {
 
-    private val server: UDPServer = UDPServer(0)
+    private val server = UDPServer(0)
     private var initialized = false
+    private val socket = DatagramSocket(0)
 
     init {
+        socket.soTimeout = 1000
         thread {
             initialized = true
             server.serve()
@@ -44,7 +46,6 @@ class UDPServerTest {
     fun `should transfer packet`() {
         val request = Request.GetQuantity(UUID.randomUUID()).toMessage(1).handleWithThrow()
         val packet = Packet(clientID = 2, message = request, packetID = 3)
-        val socket = DatagramSocket(0)
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
@@ -61,7 +62,6 @@ class UDPServerTest {
             .joinToString(separator = "")
         val request = Request.AddGroup(randomString).toMessage(1).handleWithThrow()
         val packet = Packet(clientID = 2, message = request, packetID = 4)
-        val socket = DatagramSocket(0)
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
@@ -78,7 +78,6 @@ class UDPServerTest {
             .joinToString(separator = "")
         val request = Request.AddGroup(randomString).toMessage(1).handleWithThrow()
         val packet = Packet(clientID = 2, message = request, packetID = 4)
-        val socket = DatagramSocket(0)
         splitData(packet.data, packetID = packet.packetID.toULong())
             .handleWithThrow()
             .shuffled()
@@ -101,7 +100,6 @@ class UDPServerTest {
             .joinToString(separator = "")
         val request = Request.AddGroup(randomString).toMessage(1).handleWithThrow()
         val packet = Packet(clientID = 2, message = request, packetID = 4)
-        val socket = DatagramSocket(0)
         splitData(packet.data, packetID = packet.packetID.toULong())
             .handleWithThrow()
             .asSequence()
@@ -110,7 +108,6 @@ class UDPServerTest {
             .peek { Thread.sleep((UDPServer.WINDOW_TIMEOUT + Duration.ofSeconds(5)).toMillis()) }
             .forEach(socket::send)
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
-        socket.soTimeout = 1000
         var timedout = false
         try {
             socket.receive(responseDatagram)

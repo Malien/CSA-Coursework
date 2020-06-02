@@ -8,6 +8,7 @@ import ua.edu.ukma.csa.kotlinx.binarySearch
 enum class MessageType(val typeID: Int) {
     OK(0),
     ERR(1),
+    PACKET_BEHIND(2),
     GET_COUNT(10),
     EXCLUDE(11),
     INCLUDE(12),

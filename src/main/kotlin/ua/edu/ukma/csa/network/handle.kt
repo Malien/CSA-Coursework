@@ -36,7 +36,7 @@ inline fun <reified Req : Request, reified Res : Response> processMessage(
  * @return server response message
  */
 fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message.type) {
-    OK, ERR -> Left(RuntimeException("Cannot process request of type ${message.type}"))
+    OK, ERR, PACKET_BEHIND -> Left(RuntimeException("Cannot process request of type ${message.type}"))
     GET_COUNT -> processMessage(message) { request: Request.GetQuantity ->
         getQuantity(request.id).map { Response.Quantity(id = request.id, count = it) }
     }

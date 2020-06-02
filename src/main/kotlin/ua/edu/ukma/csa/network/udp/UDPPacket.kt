@@ -52,6 +52,7 @@ data class UDPPacket(
      */
     val data: ByteArray
         get() = ByteBuffer.allocate(size.toInt())
+            .put(MAGIC)
             .put(window)
             .put(sequenceID)
             .putLong(packetID)
@@ -81,7 +82,7 @@ data class UDPPacket(
     companion object {
         private const val MAGIC: Byte = 0x14
         const val PACKET_SIZE = 1024u
-        const val PACKET_HEADER = 10u
+        const val PACKET_HEADER = 11u
         val PACKET_BODY = PACKET_SIZE - PACKET_HEADER
         val MAX_PAYLOAD_SIZE = PACKET_BODY * UByte.MAX_VALUE
 

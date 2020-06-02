@@ -15,6 +15,9 @@ sealed class Response(@Transient val messageType: MessageType = MessageType.OK) 
     object Ok : Response()
 
     @Serializable
+    object PacketBehind: Response(MessageType.PACKET_BEHIND)
+
+    @Serializable
     data class Quantity(@Serializable(with = UUIDSerializer::class) val id: UUID, val count: Int) : Response()
 
     @Serializable
