@@ -107,7 +107,7 @@ class UDPServerTest {
             .asSequence()
             .map { it.data }
             .map { DatagramPacket(it, it.size, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort)) }
-            .peek { Thread.sleep((UDPServer.WINDOW_TIMEOUT + Duration.ofSeconds(5)).toMillis()) }
+            .peek { Thread.sleep((UDPServer.WINDOW_TIMEOUT + Duration.ofSeconds(10)).toMillis()) }
             .forEach(socket::send)
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         var timedout = false
