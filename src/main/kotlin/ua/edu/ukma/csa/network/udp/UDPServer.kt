@@ -98,10 +98,11 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
             try {
                 if (shouldStop) break@loop
                 socket.receive(datagram)
-                val packet = UDPPacket.from(datagram)
-                if (packet is Either.Right) {
+                val udpPacket = UDPPacket.from(datagram)
+                if (udpPacket is Either.Right) {
+                    val (packet) = udpPacket
                     val state = parts.getOrPut(datagram.socketAddress) { ConnectionState() }
-                    val window = state?.windows?.get(packet.b.packetID)
+                    val window = state?.windows?.get(packet.packetID)
 
                     timeout.timeout(Timeout.User(datagram.socketAddress), after = USER_TIMEOUT) {
                         it as Timeout.User
@@ -109,46 +110,46 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                     }
 
                     if (window == null) {
-                        if (packet.b.window == 1.toUByte()) {
+                        if (packet.window == 1.toUByte()) {
                             yield(
                                 UDPRequest(
-                                    data = packet.b.chunk,
+                                    data = packet.chunk,
                                     address = datagram.socketAddress,
                                     packetCount = state.packetCount
                                 )
                             )
-                            if (packet.b.packetID == 0UL) state.packetCount = packet.b.packetID
-                            else state.packetCount = packet.b.packetID.coerceAtLeast(state.packetCount)
+                            if (packet.packetID == 0UL) state.packetCount = packet.packetID
+                            else state.packetCount = packet.packetID.coerceAtLeast(state.packetCount)
                         } else {
-                            val newBlob = UDPWindow(packet.b.window)
-                            if (packet.b.sequenceID > packet.b.window) continue@loop // TODO: send error message back
+                            val newBlob = UDPWindow(packet.window)
+                            if (packet.sequenceID > packet.window) continue@loop // TODO: send error message back
 
                             timeout.timeout(
-                                Timeout.Window(datagram.socketAddress, packet.b.packetID),
+                                Timeout.Window(datagram.socketAddress, packet.packetID),
                                 after = WINDOW_TIMEOUT
                             ) {
                                 it as Timeout.Window
                                 parts[it.address]?.windows?.remove(it.packetID)
                             }
 
-                            newBlob[packet.b.sequenceID] = packet.b
+                            newBlob[packet.sequenceID] = packet
                             newBlob.received++
-                            state.windows[packet.b.packetID] = newBlob
+                            state.windows[packet.packetID] = newBlob
                         }
                     } else {
-                        if (packet.b.window != window.count) continue@loop // TODO: send error message back
-                        if (packet.b.sequenceID > packet.b.window) continue@loop // TODO: send error message back
-                        if (window[packet.b.sequenceID] == null) {
+                        if (packet.window != window.count) continue@loop // TODO: send error message back
+                        if (packet.sequenceID > packet.window) continue@loop // TODO: send error message back
+                        if (window[packet.sequenceID] == null) {
                             window.received++
                         }
-                        window[packet.b.sequenceID] = packet.b
-                        if (window.received == packet.b.window) {
+                        window[packet.sequenceID] = packet
+                        if (window.received == packet.window) {
                             val combined = ByteArray(window.packets.sumBy { it!!.size.toInt() })
                             window.packets.fold(0) { written, blobPacket ->
                                 blobPacket!!.chunk.copyInto(combined, destinationOffset = written)
                                 written + blobPacket.chunk.size
                             }
-                            state.windows.remove(packet.b.packetID)
+                            state.windows.remove(packet.packetID)
                             yield(
                                 UDPRequest(
                                     data = combined,
@@ -156,11 +157,11 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                                     packetCount = state.packetCount
                                 )
                             )
-                            if (packet.b.packetID == 0UL) state.packetCount = packet.b.packetID
-                            else state.packetCount = packet.b.packetID.coerceAtLeast(state.packetCount)
+                            if (packet.packetID == 0UL) state.packetCount = packet.packetID
+                            else state.packetCount = packet.packetID.coerceAtLeast(state.packetCount)
                         } else {
                             timeout.timeout(
-                                Timeout.Window(datagram.socketAddress, packet.b.packetID),
+                                Timeout.Window(datagram.socketAddress, packet.packetID),
                                 after = WINDOW_TIMEOUT
                             ) {
                                 it as Timeout.Window
