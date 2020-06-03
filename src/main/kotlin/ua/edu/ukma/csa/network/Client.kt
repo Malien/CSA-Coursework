@@ -8,9 +8,26 @@ import kotlinx.serialization.serializer
 import java.io.Closeable
 import java.util.*
 
+/**
+ * Client-server communications done via kotlin suspend functions for better convenience. To fully support all
+ * client requests, implementers should implement at only [fetch]. To provide support for custom messages one can
+ * extend this interface by adding functions that specialize fetch.
+ */
 interface Client : Closeable {
-    val clientID: UByte
 
+    /**
+     * Make a request to the server. Sends a request to the server, suspends the caller until [Either] server responds
+     * with a valid response, or a [FetchError] otherwise.
+     * @param request request to be sent to the server. Subtype of [Request]
+     * @param requestSerializer serialization strategy used to serialize provided message to ProtoBuf
+     * @param responseDeserializer deserialization strategy used to deserialize server response from ProtoBuf. If
+     * server sends message of different type to the one provided, fetch will return [Either.Left] of
+     * [FetchError.Serialization]
+     * @param resendBehind whether or not to automatically re-send messages that were received out of order.
+     * _Defaults to `true`_
+     * @param retries number of retries to be attempted when responses timeout. _Defaults to `0u`_
+     * @return [Either] a [FetchError] in case of an... well... error. Or a [Res] in case of success
+     */
     suspend fun <Req : Request, Res : Response> fetch(
         request: Req,
         requestSerializer: SerializationStrategy<Req>,
@@ -38,6 +55,18 @@ interface Client : Closeable {
         fetch<Request.Exclude, Response.Quantity>(Request.Exclude(id, count), resendBehind, retries)
 
     companion object {
+        /**
+         * Convenience function to the standard fetch. Uses reified type parameters to get serializers for both
+         * [request][Request] and [response][Response].
+         * @sample addGroup
+         * @param Req type of request to be sent. _Subtype of [Request]]_
+         * @param Res type of response to be received. _Subtype of [Response]_
+         * @param request request to be sent to the server
+         * @param resendBehind whether or not to automatically re-send messages that were received out of order.
+         * _Defaults to `true`_
+         * @param retries number of retries to be attempted when responses timeout. _Defaults to `0u`_
+         * @return [Either] a [FetchError] in case of an... well... error. Or a [Res] in case of success
+         */
         @OptIn(ImplicitReflectionSerializer::class)
         suspend inline fun <reified Req : Request, reified Res : Response> Client.fetch(
             request: Req,

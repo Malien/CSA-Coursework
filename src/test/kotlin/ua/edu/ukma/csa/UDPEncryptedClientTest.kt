@@ -74,8 +74,8 @@ class UDPEncryptedClientTest {
     @Test
     fun `should add group`() {
         runBlocking {
-            assertRight(MessageType.OK, client.addGroup("name").map { it.messageType })
-            assertRight(MessageType.OK, client.assignGroup(biscuit.id, "name").map { it.messageType })
+            assertRight(MessageType.OK, client.addGroup("name").map { it.type })
+            assertRight(MessageType.OK, client.assignGroup(biscuit.id, "name").map { it.type })
             assertTrue(groups["name"]!!.contains(biscuit))
         }
     }
@@ -98,7 +98,7 @@ class UDPEncryptedClientTest {
         runBlocking {
             val res = client.addGroup(randomString)
                 .then { client.assignGroup(biscuit.id, randomString) }
-            assertRight(MessageType.OK, res.map { it.messageType })
+            assertRight(MessageType.OK, res.map { it.type })
             assertTrue(groups[randomString]!!.contains(biscuit))
         }
     }
@@ -106,7 +106,8 @@ class UDPEncryptedClientTest {
     @Test
     fun `should receive server error`() {
         runBlocking {
-            assertLeftType<FetchError.ServerResponse>(client.getQuantity(UUID.randomUUID()))
+            val result = client.getQuantity(UUID.randomUUID())
+            assertLeftType<FetchError.ServerResponse>(result)
         }
     }
 

@@ -1,21 +1,30 @@
 package ua.edu.ukma.csa.network
 
-import kotlinx.serialization.*
+import kotlinx.serialization.ImplicitReflectionSerializer
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
+import kotlinx.serialization.serializer
 import ua.edu.ukma.csa.kotlinx.java.util.UUIDSerializer
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
 import java.util.*
 
 @Serializable
-sealed class Response(@Transient val messageType: MessageType = MessageType.OK) {
+sealed class Response() {
+    open val type: MessageType get() = MessageType.OK
+
     @Serializable
-    data class Error(val message: String) : Response(MessageType.ERR)
+    data class Error(val message: String) : Response() {
+        override val type get() = MessageType.ERR
+    }
 
     @Serializable
     object Ok : Response()
 
     @Serializable
-    object PacketBehind: Response(MessageType.PACKET_BEHIND)
+    object PacketBehind: Response() {
+        override val type get() = MessageType.PACKET_BEHIND
+    }
 
     @Serializable
     data class Quantity(@Serializable(with = UUIDSerializer::class) val id: UUID, val count: Int) : Response()
@@ -26,10 +35,10 @@ sealed class Response(@Transient val messageType: MessageType = MessageType.OK) 
 }
 
 inline fun <reified T : Response> T.toMessage(userID: UInt = 0u) =
-    serialize().map { Message.Decrypted(messageType, userID, message = it) }
+    serialize().map { Message.Decrypted(type, userID, message = it) }
 
 fun <T : Response> T.toMessage(userID: UInt = 0u, serializer: KSerializer<T>) =
-    serialize(serializer).map { Message.Decrypted(messageType, userID, message = it) }
+    serialize(serializer).map { Message.Decrypted(type, userID, message = it) }
 
 @OptIn(ImplicitReflectionSerializer::class)
 inline fun <reified T : Response> T.serialize() =

@@ -53,8 +53,8 @@ class UDPClientTest {
     @Test
     fun `should add group`() {
         runBlocking {
-            assertRight(MessageType.OK, client.addGroup("name").map { it.messageType })
-            assertRight(MessageType.OK, client.assignGroup(biscuit.id, "name").map { it.messageType })
+            assertRight(MessageType.OK, client.addGroup("name").map { it.type })
+            assertRight(MessageType.OK, client.assignGroup(biscuit.id, "name").map { it.type })
             assertTrue(groups["name"]!!.contains(biscuit))
         }
     }
@@ -77,7 +77,7 @@ class UDPClientTest {
         runBlocking {
             val res = client.addGroup(randomString)
                 .then { client.assignGroup(biscuit.id, randomString) }
-            assertRight(MessageType.OK, res.map { it.messageType })
+            assertRight(MessageType.OK, res.map { it.type })
             assertTrue(groups[randomString]!!.contains(biscuit))
         }
     }
