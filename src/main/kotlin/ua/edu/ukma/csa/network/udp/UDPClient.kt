@@ -118,7 +118,8 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                             )
                             else -> {
                                 timeout.timeout(packet.packetID, after = WINDOW_TIMEOUT) {
-                                    parts.remove(packet.packetID)
+                                    parts.remove(it)
+                                    retryTimeouts(it)
                                 }
 
                                 val newWindow = UDPWindow(packet.window)
@@ -144,7 +145,8 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                             dispatchPacket(parsePacket(combined))
                         } else {
                             timeout.timeout(packet.packetID, after = WINDOW_TIMEOUT) {
-                                parts.remove(packet.packetID)
+                                parts.remove(it)
+                                retryTimeouts(it)
                             }
                         }
                     }
@@ -179,6 +181,19 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                 retries
             )
             send(packet)
+            timeout.timeout(id, after = PACKET_TIMEOUT, handler = ::retryTimeouts)
+        }
+    }
+
+    private fun retryTimeouts(id: ULong) {
+        val handler = handlers[id] ?: return
+        if (handler.retries < handler.attempts) {
+            handlers[id] = handler.copy(attempts = handler.attempts + 1u)
+            send(handler.packet)
+            timeout.timeout(id, after = PACKET_TIMEOUT, handler = ::retryTimeouts)
+        } else {
+            handlers.remove(id)
+            handler.continuation.resume(Left(FetchError.Timeout(id, handler.attempts)))
         }
     }
 
@@ -231,8 +246,10 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
 
     companion object {
         const val CLIENT_ID: UByte = 1u
-        val TIMEOUT = 1000
-        val WINDOW_TIMEOUT = Duration.ofSeconds(40)
+        private const val TIMEOUT = 1000
+        private val WINDOW_TIMEOUT = Duration.ofSeconds(10)
+        private val PACKET_TIMEOUT = Duration.ofSeconds(20)
+
     }
 }
 
