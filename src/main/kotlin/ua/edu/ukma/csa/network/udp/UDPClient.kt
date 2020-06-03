@@ -37,15 +37,6 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
         socket.soTimeout = TIMEOUT
     }
 
-    data class Handler<R : Response>(
-        val continuation: Continuation<Either<FetchError, Response>>,
-        val packet: Packet<Message.Decrypted>,
-        val responseDeserializer: DeserializationStrategy<R>,
-        val resendBehind: Boolean,
-        val retries: UInt,
-        val attempts: UInt = 0u
-    )
-
     private val handlers = ConcurrentHashMap<ULong, Handler<Response>>()
 
     private val parts = ConcurrentSkipListMap<ULong, UDPWindow>()
@@ -70,8 +61,8 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                 when (packet.message.type) {
                     MessageType.ERR -> {
                         val response = ProtoBuf.fload(Response.Error.serializer(), packet.message.message)
-                            .mapLeft { FetchError.Serialization(it) }
-                            .flatMap { Left(FetchError.ServerResponse(it)) }
+                            .mapLeft { FetchException.Serialization(it) }
+                            .flatMap { Left(FetchException.ServerResponse(it)) }
                         handler.continuation.resume(response)
                     }
                     MessageType.PACKET_BEHIND -> {
@@ -82,14 +73,14 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                             send(newPacket)
                         } else {
                             val response = ProtoBuf.fload(Response.Error.serializer(), packet.message.message)
-                                .mapLeft { FetchError.Serialization(it) }
-                                .flatMap { Left(FetchError.PacketBehind(packet.packetID)) }
+                                .mapLeft { FetchException.Serialization(it) }
+                                .flatMap { Left(FetchException.PacketBehind(packet.packetID)) }
                             handler.continuation.resume(response)
                         }
                     }
                     else -> {
                         val response = ProtoBuf.fload(handler.responseDeserializer, packet.message.message)
-                            .mapLeft { FetchError.Serialization(it) }
+                            .mapLeft { FetchException.Serialization(it) }
                         handler.continuation.resume(response)
                     }
                 }
@@ -100,7 +91,7 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                 val handler = handlers[error.packetID] ?: return
                 if (handler.attempts < handler.retries) retryTimeouts(error.packetID)
                 else {
-                    handler.continuation.resume(Left(FetchError.Parsing(error)))
+                    handler.continuation.resume(Left(FetchException.Parsing(error)))
                 }
             }
         }
@@ -180,15 +171,15 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
             responseDeserializer: DeserializationStrategy<Res>,
             resendBehind: Boolean,
             retries: UInt
-        ): Either<FetchError, Res> = withContext(Dispatchers.IO) {
+        ): Either<FetchException, Res> = withContext(Dispatchers.IO) {
             val message = request.toMessage(requestSerializer, userID)
-                .mapLeft { FetchError.Serialization(it) }
+                .mapLeft { FetchException.Serialization(it) }
                 .unwrap { return@withContext it }
             val id = packetID.incrementAndGet().toULong()
             val packet = Packet(clientID = CLIENT_ID, message = message, packetID = id)
-            return@withContext suspendCoroutine<Either<FetchError, Res>> { continuation ->
+            return@withContext suspendCoroutine<Either<FetchException, Res>> { continuation ->
                 handlers[id] = Handler(
-                    continuation as Continuation<Either<FetchError, Response>>,
+                    continuation as Continuation<Either<FetchException, Response>>,
                     packet,
                     responseDeserializer as DeserializationStrategy<Response>,
                     resendBehind,
@@ -207,7 +198,7 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                 timeout.timeout(id, after = PACKET_TIMEOUT, handler = ::retryTimeouts)
             } else {
                 handlers.remove(id)
-                handler.continuation.resume(Left(FetchError.Timeout(id, handler.attempts)))
+                handler.continuation.resume(Left(FetchException.Timeout(id, handler.attempts)))
             }
         }
 

@@ -5,7 +5,7 @@ import kotlinx.serialization.SerializationException
 /**
  * Class that signifies errors in clint-server communication. (Mostly using [Client] APIs)
  */
-sealed class FetchError(msg: String) : RuntimeException(msg) {
+sealed class FetchException(msg: String) : RuntimeException(msg) {
 
     /**
      * Signifies a request timeout
@@ -13,20 +13,20 @@ sealed class FetchError(msg: String) : RuntimeException(msg) {
      * @param tries number of retries attempted
      */
     data class Timeout(val packetID: ULong, val tries: UInt) :
-        FetchError("Request $packetID timed out, after $tries")
+        FetchException("Request $packetID timed out, after $tries")
 
     /**
      * Signifies that packets weren't able to be received in-order
      * @param packetID id of a packet that was sent out of order
      */
-    data class PacketBehind(val packetID: ULong) : FetchError("Request $packetID is behind others")
+    data class PacketBehind(val packetID: ULong) : FetchException("Request $packetID is behind others")
 
     /**
      * Signifies an error while parsing either a [Packet] or a [Message] received from the server
      * @param packetException exception that was raised while trying to parse packet
      */
     data class Parsing(val packetException: PacketException) :
-        FetchError(packetException.message!!)
+        FetchException(packetException.message!!)
 
     /**
      * Signifies an error while serializing user request or deserializing server response. Possible causes include:
@@ -35,12 +35,12 @@ sealed class FetchError(msg: String) : RuntimeException(msg) {
      * @param serializationException exact exception that was raised in the process of (de)serialization
      */
     data class Serialization(val serializationException: SerializationException) :
-        FetchError(serializationException.message ?: "")
+        FetchException(serializationException.message ?: "")
 
     /**
      * Signifies a error sent back by the server.
      * @param response exact response message sent back by the server
      */
     data class ServerResponse(val response: Response.Error) :
-        FetchError("Server responded with following error: $response")
+        FetchException("Server responded with following error: $response")
 }

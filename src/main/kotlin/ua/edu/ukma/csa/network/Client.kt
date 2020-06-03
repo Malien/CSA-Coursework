@@ -17,16 +17,16 @@ interface Client : Closeable {
 
     /**
      * Make a request to the server. Sends a request to the server, suspends the caller until [Either] server responds
-     * with a valid response, or a [FetchError] otherwise.
+     * with a valid response, or a [FetchException] otherwise.
      * @param request request to be sent to the server. Subtype of [Request]
      * @param requestSerializer serialization strategy used to serialize provided message to ProtoBuf
      * @param responseDeserializer deserialization strategy used to deserialize server response from ProtoBuf. If
      * server sends message of different type to the one provided, fetch will return [Either.Left] of
-     * [FetchError.Serialization]
+     * [FetchException.Serialization]
      * @param resendBehind whether or not to automatically re-send messages that were received out of order.
      * _Defaults to `true`_
      * @param retries number of retries to be attempted when responses timeout. _Defaults to `0u`_
-     * @return [Either] a [FetchError] in case of an... well... error. Or a [Res] in case of success
+     * @return [Either] a [FetchException] in case of an... well... error. Or a [Res] in case of success
      */
     suspend fun <Req : Request, Res : Response> fetch(
         request: Req,
@@ -34,7 +34,7 @@ interface Client : Closeable {
         responseDeserializer: DeserializationStrategy<Res>,
         resendBehind: Boolean = true,
         retries: UInt = 0u
-    ): Either<FetchError, Res>
+    ): Either<FetchException, Res>
 
     suspend fun getQuantity(id: UUID, resendBehind: Boolean = true, retries: UInt = 0u) =
         fetch<Request.GetQuantity, Response.Quantity>(Request.GetQuantity(id), resendBehind, retries)
@@ -65,7 +65,7 @@ interface Client : Closeable {
          * @param resendBehind whether or not to automatically re-send messages that were received out of order.
          * _Defaults to `true`_
          * @param retries number of retries to be attempted when responses timeout. _Defaults to `0u`_
-         * @return [Either] a [FetchError] in case of an... well... error. Or a [Res] in case of success
+         * @return [Either] a [FetchException] in case of an... well... error. Or a [Res] in case of success
          */
         @OptIn(ImplicitReflectionSerializer::class)
         suspend inline fun <reified Req : Request, reified Res : Response> Client.fetch(
