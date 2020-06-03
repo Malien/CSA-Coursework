@@ -29,6 +29,10 @@ import kotlin.coroutines.suspendCoroutine
 sealed class UDPClient(protected val serverAddress: SocketAddress, private val userID: UInt) : Client {
     protected val socket = DatagramSocket(0)
 
+    init {
+        socket.soTimeout = TIMEOUT
+    }
+
     data class Handler<R : Response>(
         val continuation: Continuation<Either<FetchError, Response>>,
         val packet: Packet<Message.Decrypted>,
@@ -180,6 +184,7 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
 
     override fun close() {
         shouldStop = true
+        timeout.close()
         networkThread.join()
         socket.close()
     }
@@ -226,6 +231,7 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
 
     companion object {
         const val CLIENT_ID: UByte = 1u
+        val TIMEOUT = 1000
         val WINDOW_TIMEOUT = Duration.ofSeconds(40)
     }
 }

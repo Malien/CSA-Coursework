@@ -7,6 +7,7 @@ import arrow.core.getOrHandle
 import kotlinx.serialization.ImplicitReflectionSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.serializer
+import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.serialization.fload
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.MessageType.*
@@ -15,8 +16,7 @@ import java.io.OutputStream
 import java.security.Key
 import javax.crypto.Cipher
 
-fun errorMessage(message: String) = errorMessage(message.toByteArray())
-fun errorMessage(message: ByteArray = ByteArray(0)) = Message.Decrypted(ERR, 0u, message)
+fun errorMessage(message: String) = Response.Error(message).toMessage().handleWithThrow()
 
 fun errorPacket(error: Exception) = Packet(clientID = 0u, message = errorMessage(error.message!!))
 fun errorPacket(error: Exception, key: Key, cipher: Cipher) =

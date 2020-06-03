@@ -19,21 +19,42 @@ import ua.edu.ukma.csa.network.udp.UDPClient
 import ua.edu.ukma.csa.network.udp.UDPServer
 import ua.edu.ukma.csa.network.udp.serve
 import java.net.InetAddress
+import java.security.Key
+import java.security.SecureRandom
 import java.util.*
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
 import kotlin.concurrent.thread
 import kotlin.random.nextInt
 
 @ExperimentalUnsignedTypes
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class UDPClientTest {
+class UDPEncryptedClientTest {
+
+    private val key: Key
+    private val clientCipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+    private val serverCipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+
+    init {
+        val generator = KeyGenerator.getInstance("AES")
+        val random = SecureRandom()
+        generator.init(128, random)
+        key = generator.generateKey()
+    }
 
     private val server = UDPServer(0)
-    private val client = UDPClient.Decrypted(InetAddress.getLocalHost(), server.socket.localPort, 3u)
+    private val client = UDPClient.Encrypted(
+        InetAddress.getLocalHost(),
+        server.socket.localPort,
+        3u,
+        key,
+        clientCipher
+    )
     private val biscuit = Product(name = "Biscuit", price = 17.55, count = 10)
 
     init {
         thread {
-            server.serve()
+            server.serve(key, serverCipher)
         }
     }
 
