@@ -1,4 +1,4 @@
-package ua.edu.ukma.csa.kotlinx.util
+package ua.edu.ukma.csa.kotlinx.java.util
 
 import kotlinx.serialization.*
 import java.util.*

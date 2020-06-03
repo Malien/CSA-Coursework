@@ -16,11 +16,11 @@ import java.security.Key
 import javax.crypto.Cipher
 
 fun errorMessage(message: String) = errorMessage(message.toByteArray())
-fun errorMessage(message: ByteArray = ByteArray(0)) = Message.Decrypted(ERR, 0, message)
+fun errorMessage(message: ByteArray = ByteArray(0)) = Message.Decrypted(ERR, 0u, message)
 
-fun errorPacket(error: Exception) = Packet(clientID = 0, message = errorMessage(error.message!!))
+fun errorPacket(error: Exception) = Packet(clientID = 0u, message = errorMessage(error.message!!))
 fun errorPacket(error: Exception, key: Key, cipher: Cipher) =
-    Packet(clientID = 0, message = errorMessage(error.message!!).encrypted(key, cipher))
+    Packet(clientID = 0u, message = errorMessage(error.message!!).encrypted(key, cipher))
 
 @OptIn(ImplicitReflectionSerializer::class)
 inline fun <reified Req : Request, reified Res : Response> processMessage(
@@ -36,7 +36,7 @@ inline fun <reified Req : Request, reified Res : Response> processMessage(
  * @return server response message
  */
 fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message.type) {
-    OK, ERR -> Left(RuntimeException("Cannot process request of type ${message.type}"))
+    OK, ERR, PACKET_BEHIND -> Left(RuntimeException("Cannot process request of type ${message.type}"))
     GET_COUNT -> processMessage(message) { request: Request.GetQuantity ->
         getQuantity(request.id).map { Response.Quantity(id = request.id, count = it) }
     }
@@ -63,7 +63,7 @@ fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message
  * @return unencrypted response packet
  */
 fun handlePacket(packet: Packet<Message.Decrypted>): Packet<Message.Decrypted> = Packet(
-    clientID = 0,
+    clientID = 0u,
     message = handleMessage(packet.message),
     packetID = packet.packetID
 )
@@ -76,7 +76,7 @@ fun handlePacket(packet: Packet<Message.Decrypted>): Packet<Message.Decrypted> =
  * @return encrypted response packet
  */
 fun handlePacket(packet: Packet<Message.Encrypted>, key: Key, cipher: Cipher): Packet<Message.Encrypted> = Packet(
-    clientID = 0,
+    clientID = 0u,
     message = handleMessage(packet.message.decrypted(key, cipher)).encrypted(key, cipher),
     packetID = packet.packetID
 )

@@ -5,36 +5,36 @@ enum class CRCType { HEADER, MESSAGE }
 /**
  * Exception that signifies an error while decoding a packet or message from bytes
  */
-sealed class PacketException(message: String) : RuntimeException(message) {
-
+sealed class PacketException(message: String, val packetID: ULong = 0UL) : RuntimeException(message) {
     /**
      * Error that signifies an invalid CRC when decoding a packet.
-     * @param type whether error occurred in the HEADER crc field or in th MESSAGE
+     * @param type whether error occurred in the [header][CRCType.HEADER] crc field or in the [message][CRCType.MESSAGE]
      * @param expected crc value that was expected
      * @param got crc value that was encoded into the message
      */
-    data class CRCCheck(val type: CRCType, val expected: Short, val got: Short) :
-        PacketException("Invalid ${type.name.toLowerCase()} CRC. Expected $expected, got $got")
+    class CRCCheck(val type: CRCType, val expected: Short, val got: Short, _packetID: ULong = 0UL) :
+        PacketException("Invalid ${type.name.toLowerCase()} CRC. Expected $expected, got $got", _packetID)
 
     /**
      * Error that signifies an invalid magic byte
-     * @param wrongMagic byte that was received instead of magic byte
+     * @param expected byte that was expected as a magic byte
+     * @param got byte that was received instead of magic byte
      */
-    data class Magic(val wrongMagic: Byte) :
-        PacketException("Wrong magic number. Expected 0x13, got ${Integer.toHexString(wrongMagic.toInt())}")
+    data class Magic(val expected: Byte, val got: Byte) :
+        PacketException("Wrong magic number. Expected $expected, got $got")
 
     /**
      * Error that signifies an invalid packet or message length
      * @param expected the minimum length or the expected length of a message or a packet
      * @param got length provided by the calling function
      */
-    data class Length(val expected: Int, val got: Int) :
-        PacketException("Expected packet length of $expected, got $got")
+    class Length(val expected: Int, val got: Int, _packetID: ULong = 0UL) :
+        PacketException("Expected packet length of $expected, got $got", _packetID)
 
     /**
      * Error that signifies an invalid message type field
      * @param typeID identifier of received message type
      */
-    data class InvalidType(val typeID: Int) :
-        PacketException("Invalid typeID $typeID")
+    class InvalidType(val typeID: Int, _packetID: ULong = 0UL) :
+        PacketException("Invalid typeID $typeID", _packetID)
 }

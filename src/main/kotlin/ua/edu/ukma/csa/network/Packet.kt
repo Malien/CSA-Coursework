@@ -6,6 +6,10 @@ import arrow.core.Right
 import com.github.snksoft.crc.CRC.Parameters
 import com.github.snksoft.crc.CRC.calculateCRC
 import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
+import ua.edu.ukma.csa.kotlinx.java.util.put
+import ua.edu.ukma.csa.kotlinx.java.util.putLong
+import ua.edu.ukma.csa.kotlinx.java.util.uByte
+import ua.edu.ukma.csa.kotlinx.java.util.uLong
 import java.io.DataInputStream
 import java.io.EOFException
 import java.io.InputStream
@@ -14,18 +18,18 @@ import java.nio.ByteBuffer
 /**
  * Class that represents a packet that is to be transmitted or received over the network
  *
- * @param M type of a message that packet contains within
+ * @param M type of a [message][Message] that packet contains within
  */
 data class Packet<M : Message>(
     val magic: Byte = MAGIC,
-    val clientID: Byte,
-    val packetID: Long = 0,
+    val clientID: UByte,
+    val packetID: ULong = 0UL,
     val messageLength: Int,
     val headerCRC: Short,
     val message: M,
     val messageCRC: Short
 ) {
-    constructor(clientID: Byte, message: M, packetID: Long = 0) : this(
+    constructor(clientID: UByte, message: M, packetID: ULong = 0UL) : this(
         clientID = clientID,
         packetID = packetID,
         messageLength = message.size,
@@ -77,7 +81,7 @@ data class Packet<M : Message>(
 
     override fun hashCode(): Int {
         var result = magic.toInt()
-        result = 31 * result + clientID
+        result = 31 * result + clientID.toByte()
         result = 31 * result + packetID.hashCode()
         result = 31 * result + messageLength
         result = 31 * result + headerCRC
@@ -89,7 +93,7 @@ data class Packet<M : Message>(
     companion object {
         const val MAGIC: Byte = 0x13
 
-        fun headerData(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int): ByteArray =
+        fun headerData(magic: Byte, clientID: UByte, packetID: ULong, messageLength: Int): ByteArray =
             ByteBuffer.allocate(14)
                 .put(magic)
                 .put(clientID)
@@ -97,7 +101,7 @@ data class Packet<M : Message>(
                 .putInt(messageLength)
                 .array()
 
-        fun calculateHeaderCRC(magic: Byte, clientID: Byte, packetID: Long, messageLength: Int) =
+        fun calculateHeaderCRC(magic: Byte, clientID: UByte, packetID: ULong, messageLength: Int) =
             calculateCRC(Parameters.CRC16, headerData(magic, clientID, packetID, messageLength)).toShort()
 
         fun calculateMessageCRC(message: Message) =
@@ -106,13 +110,16 @@ data class Packet<M : Message>(
         /**
          * Decodes byte array into a packet object.
          * Takes a reified generic type parameter M, which determines which type of message should be produced.
-         * M has to be an subclass of Message.
-         * For e.g. decode<Message.Encrypted> will produce a packet with an encrypted message inside,
-         * where is decode<Message.Decrypted> will produce a packet with a decrypted one
+         * M has to be an subclass of [Message].
+         *
+         * For e.g.
+         * `decode<Message.Encrypted>` will produce a packet with an [encrypted message][Message.Encrypted] inside,
+         * where is `decode<Message.Decrypted>` will produce a packet with a [decrypted one][Message.Decrypted]
+         *
          * @param bytes an byte array from which message is to be decoded
          * @param offset an offset into an array, from where packet bytes begin
          * @param length a length of serialized packet
-         * @return Either an PacketException in case of an error or Packet<M> in case of successful deserialization
+         * @return [Either] an [PacketException] in case of an error or Packet<M> in case of successful deserialization
          */
         inline fun <reified M : Message> decode(
             bytes: ByteArray,
@@ -124,73 +131,44 @@ data class Packet<M : Message>(
             val buffer = ByteBuffer.wrap(bytes, offset, length)
 
             val magic = buffer.get()
-            if (magic.toInt() != 0x13) return Left(PacketException.Magic(magic))
+            if (magic != MAGIC) return Left(PacketException.Magic(MAGIC, magic))
 
-            val clientID = buffer.get()
-            val packetID = buffer.long
+            val clientID = buffer.uByte
+            val packetID = buffer.uLong
             val messageLength = buffer.int
 
             val headerCRC = buffer.short
-            val expectedHeaderCRC = calculateHeaderCRC(
-                magic,
-                clientID,
-                packetID,
-                messageLength
-            )
+            val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
             if (expectedHeaderCRC != headerCRC)
-                return Left(
-                    PacketException.CRCCheck(
-                        CRCType.HEADER,
-                        expectedHeaderCRC,
-                        headerCRC
-                    )
-                )
+                return Left(PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC, packetID))
 
-            if (length < 18 + messageLength) return Left(
-                PacketException.Length(
-                    18 + messageLength,
-                    length
-                )
-            )
+            if (length < 18 + messageLength)
+                return Left(PacketException.Length(18 + messageLength, length, packetID))
 
             val messageData = ByteArray(messageLength)
             buffer.get(messageData)
             val message = Message.decode<M>(messageData).unwrap { return@decode it }
 
             val messageCRC = buffer.short
-            val expectedMessageCRC =
-                calculateMessageCRC(message)
+            val expectedMessageCRC = calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
-                return Left(
-                    PacketException.CRCCheck(
-                        CRCType.MESSAGE,
-                        expectedMessageCRC,
-                        messageCRC
-                    )
-                )
+                return Left(PacketException.CRCCheck(CRCType.MESSAGE, expectedMessageCRC, messageCRC, packetID))
 
-            return Right(
-                Packet(
-                    magic,
-                    clientID,
-                    packetID,
-                    messageLength,
-                    headerCRC,
-                    message,
-                    messageCRC
-                )
-            )
+            return Right(Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC))
         }
 
         /**
          * Decodes a packet object from the stream.
          * Takes a reified generic type parameter M, which determines which type of message should be produced.
-         * M has to be an subclass of Message.
-         * For e.g. from<Message.Encrypted> will produce a packet with an encrypted message inside,
-         * where is from<Message.Decrypted> will produce a packet with a decrypted one
-         * @param stream stream from which decode packet
+         * M has to be an subclass of [Message].
+         *
+         * For e.g.
+         * `from<Message.Encrypted>` will produce a packet with an [encrypted message][Message.Encrypted] inside,
+         * where is `from<Message.Decrypted>` will produce a packet with a [decrypted one][Message.Decrypted]
+         *
+         * @param stream stream from which decode packet. _Default is `true`_
          * @param seekMagic whether or not to look for a magic byte before attempting to decode a packet
-         * @return Either an PacketException in case of an error or Packet<M> in case of successful deserialization
+         * @return [Either] an [PacketException] in case of an error or Packet<M> in case of successful deserialization
          */
         inline fun <reified M : Message> from(
             stream: DataInputStream,
@@ -204,43 +182,26 @@ data class Packet<M : Message>(
                 stream.readByte()
             }
 
-            val clientID = stream.readByte()
-            val packetID = stream.readLong()
+            val clientID = stream.readByte().toUByte()
+            val packetID = stream.readLong().toULong()
             val messageLength = stream.readInt()
             val headerCRC = stream.readShort()
             val messageData = ByteArray(messageLength)
             stream.read(messageData)
             val messageCRC = stream.readShort()
 
-            if (magic.toInt() != 0x13) throw PacketException.Magic(magic)
+            if (magic != MAGIC) throw PacketException.Magic(MAGIC, magic)
 
-            val expectedHeaderCRC = calculateHeaderCRC(
-                magic,
-                clientID,
-                packetID,
-                messageLength
-            )
+            val expectedHeaderCRC = calculateHeaderCRC(magic, clientID, packetID, messageLength)
             if (expectedHeaderCRC != headerCRC)
-                return Left(
-                    PacketException.CRCCheck(
-                        CRCType.HEADER,
-                        expectedHeaderCRC,
-                        headerCRC
-                    )
-                )
+                return Left(PacketException.CRCCheck(CRCType.HEADER, expectedHeaderCRC, headerCRC))
 
             val message = Message.decode<M>(messageData).unwrap { return@from it }
 
             val expectedMessageCRC =
                 calculateMessageCRC(message)
             if (expectedMessageCRC != messageCRC)
-                return Left(
-                    PacketException.CRCCheck(
-                        CRCType.MESSAGE,
-                        expectedMessageCRC,
-                        messageCRC
-                    )
-                )
+                return Left(PacketException.CRCCheck(CRCType.MESSAGE, expectedMessageCRC, messageCRC))
 
             return Right(Packet(magic, clientID, packetID, messageLength, headerCRC, message, messageCRC))
         }
@@ -248,16 +209,16 @@ data class Packet<M : Message>(
         /**
          * Converts a stream to a sequence of packets
          * @param stream stream from which packets will be decoded
-         * @return a sequence of either a packet exception or a packet itself
+         * @return a sequence of [Either] a [PacketException] or a [Packet] itself
          */
-        inline fun <reified M : Message> sequenceFrom(
-            stream: InputStream
-        ): Sequence<Either<PacketException, Packet<M>>> = sequence {
+        inline fun <reified M : Message> sequenceFrom(stream: InputStream) = sequence {
             val data = DataInputStream(stream)
             while (true) {
                 try {
-                    while (true) yield(from(data))
-                } catch (e: EOFException) { return@sequence }
+                    while (true) yield(from<M>(data))
+                } catch (e: EOFException) {
+                    return@sequence
+                }
             }
         }
 

@@ -11,7 +11,7 @@ import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 
-
+@ExperimentalUnsignedTypes
 class MessageTest {
 
     private val key: Key
@@ -26,7 +26,7 @@ class MessageTest {
 
     @Test
     fun decode() {
-        val message = Message.Decrypted(MessageType.OK, 2, "hello".toByteArray())
+        val message = Message.Decrypted(MessageType.OK, 2u, "hello".toByteArray())
         val decoded = Message.decode<Message.Decrypted>(message.data)
         assertRight(message, decoded)
         assertRight("hello", decoded.map { String(it.message) })
@@ -40,7 +40,7 @@ class MessageTest {
 
     @Test
     fun encryptedDecode() {
-        val message = Message.Decrypted(MessageType.OK, 2, "hello".toByteArray())
+        val message = Message.Decrypted(MessageType.OK, 2u, "hello".toByteArray())
         val encryptedMessage = message.encrypted(key, cipher)
         val encryptedDecodedMessage = Message.decode<Message.Encrypted>(encryptedMessage.data)
         val decodedMessage = encryptedDecodedMessage.map { it.decrypted(key, cipher) }

@@ -11,9 +11,7 @@ import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
-import java.util.*
 import kotlin.concurrent.thread
-
 
 class ProductTest {
 
@@ -98,24 +96,6 @@ class ProductTest {
         assertLeftType<ModelException.GroupDoesNotExist>(assignGroup(biscuit.id, "Non existent"))
     }
 
-    sealed class Change {
-        data class AddGroup(val name: String) : Change()
-        data class AssignGroup(val id: UUID, val group: String) : Change()
-        data class AddProduct(val product: Product) : Change()
-        data class AddQuantity(val id: UUID, val quantity: Int) : Change()
-        data class RemoveQuantity(val id: UUID, val quantity: Int) : Change()
-        data class SetPrice(val id: UUID, val price: Double) : Change()
-
-        fun handle() = when (this) {
-            is AddGroup -> addGroup(name)
-            is AssignGroup -> assignGroup(id, group)
-            is AddProduct -> addProduct(product)
-            is AddQuantity -> addQuantityOfProduct(id, quantity)
-            is RemoveQuantity -> deleteQuantityOfProduct(id, quantity)
-            is SetPrice -> setPrice(id, price)
-        }
-    }
-
     @RepeatedTest(20)
     fun parallelChanges() {
         val instructionSets = listOf(
@@ -126,7 +106,7 @@ class ProductTest {
                     assignGroup(iceCream.id, "Special").bind()
                 }
             }, {
-                Either.fx<ModelException, Unit> {
+                Either.fx {
                     addGroup("Discounted").bind()
 
                     setPrice(biscuit.id, 17.5).bind()
@@ -139,17 +119,17 @@ class ProductTest {
             }, {
                 deleteQuantityOfProduct(biscuit.id, 20).map { Unit }
             }, {
-                Either.fx<ModelException, Unit> {
+                Either.fx {
                     deleteQuantityOfProduct(biscuit.id, 10).bind()
                     deleteQuantityOfProduct(iceCream.id, 10).bind()
                 }
             }, {
-                Either.fx<ModelException, Unit> {
+                Either.fx {
                     deleteQuantityOfProduct(biscuit.id, 10).bind()
                     deleteQuantityOfProduct(iceCream.id, 10).bind()
                 }
             }, {
-                Either.fx<ModelException, Unit> {
+                Either.fx {
                     addQuantityOfProduct(biscuit.id, 60).bind()
                     addQuantityOfProduct(conditioner.id, 20).bind()
                     addQuantityOfProduct(iceCream.id, 5).bind()
