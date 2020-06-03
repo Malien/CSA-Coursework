@@ -18,6 +18,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:0.20.0")
     implementation("com.github.snksoft:crc:1.0.2")

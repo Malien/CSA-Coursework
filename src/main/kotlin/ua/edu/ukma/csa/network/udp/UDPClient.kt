@@ -3,6 +3,8 @@ package ua.edu.ukma.csa.network.udp
 import arrow.core.Either
 import arrow.core.Left
 import arrow.core.flatMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -12,6 +14,7 @@ import ua.edu.ukma.csa.network.*
 import java.io.IOException
 import java.net.*
 import java.security.Key
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListMap
 import java.util.concurrent.atomic.AtomicLong
@@ -40,6 +43,8 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
     private val parts = ConcurrentSkipListMap<ULong, UDPWindow>()
 
     private var packetID = AtomicLong(0L)
+
+    private val timeout = TimeoutHandler<ULong>()
 
     override val clientID = CLIENT_ID
 
@@ -89,6 +94,7 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
     private val networkThread = thread(name = "UDP-Client-Thread") {
         val buffer = ByteArray(UDPPacket.PACKET_SIZE.toInt())
         val datagram = DatagramPacket(buffer, buffer.size)
+
         loop@ while (true) {
             try {
                 if (shouldStop) break@loop
@@ -107,6 +113,10 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                                 parsePacket(packet.chunk, packet.chunkOffset, packet.chunkLength)
                             )
                             else -> {
+                                timeout.timeout(packet.packetID, after = WINDOW_TIMEOUT) {
+                                    parts.remove(packet.packetID)
+                                }
+
                                 val newWindow = UDPWindow(packet.window)
                                 newWindow[packet.sequenceID] = packet
                                 newWindow.received++
@@ -128,6 +138,10 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
                             }
                             parts.remove(packet.packetID)
                             dispatchPacket(parsePacket(combined))
+                        } else {
+                            timeout.timeout(packet.packetID, after = WINDOW_TIMEOUT) {
+                                parts.remove(packet.packetID)
+                            }
                         }
                     }
                 }
@@ -146,13 +160,13 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
         responseDeserializer: DeserializationStrategy<Res>,
         resendBehind: Boolean,
         retries: UInt
-    ): Either<FetchError, Res> {
+    ): Either<FetchError, Res> = withContext(Dispatchers.IO) {
         val message = request.toMessage(requestSerializer, userID)
             .mapLeft { FetchError.Serialization(it) }
-            .unwrap { return@fetch it }
+            .unwrap { return@withContext it }
         val id = packetID.incrementAndGet().toULong()
         val packet = Packet(clientID = CLIENT_ID, message = message, packetID = id)
-        return suspendCoroutine { continuation ->
+        return@withContext suspendCoroutine<Either<FetchError, Res>> { continuation ->
             handlers[id] = Handler(
                 continuation as Continuation<Either<FetchError, Response>>,
                 packet,
@@ -212,6 +226,7 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
 
     companion object {
         const val CLIENT_ID: UByte = 1u
+        val WINDOW_TIMEOUT = Duration.ofSeconds(40)
     }
 }
 
