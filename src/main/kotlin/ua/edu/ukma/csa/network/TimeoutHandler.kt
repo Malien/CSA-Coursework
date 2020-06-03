@@ -1,4 +1,4 @@
-package ua.edu.ukma.csa.network.udp
+package ua.edu.ukma.csa.network
 
 import java.io.Closeable
 import java.time.Duration

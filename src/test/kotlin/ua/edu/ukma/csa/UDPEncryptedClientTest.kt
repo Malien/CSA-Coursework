@@ -13,7 +13,7 @@ import ua.edu.ukma.csa.model.Product
 import ua.edu.ukma.csa.model.addProduct
 import ua.edu.ukma.csa.model.groups
 import ua.edu.ukma.csa.model.model
-import ua.edu.ukma.csa.network.FetchError
+import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.udp.UDPClient
 import ua.edu.ukma.csa.network.udp.UDPServer
@@ -107,7 +107,7 @@ class UDPEncryptedClientTest {
     fun `should receive server error`() {
         runBlocking {
             val result = client.getQuantity(UUID.randomUUID())
-            assertLeftType<FetchError.ServerResponse>(result)
+            assertLeftType<FetchException.ServerResponse>(result)
         }
     }
 
