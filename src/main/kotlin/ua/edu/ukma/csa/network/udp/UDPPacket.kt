@@ -33,11 +33,11 @@ data class UDPPacket(
     val sequenceID: UByte,
     val packetID: ULong,
     val chunk: ByteArray,
-    val chunkSize: Int = chunk.size,
+    val chunkLength: Int = chunk.size,
     val chunkOffset: Int = 0
 ) {
     init {
-        require(chunkSize >= 0)
+        require(chunkLength >= 0)
         require(chunkOffset >= 0)
     }
 
@@ -55,7 +55,7 @@ data class UDPPacket(
             .put(window)
             .put(sequenceID)
             .putLong(packetID)
-            .put(chunk, chunkOffset, chunkSize)
+            .put(chunk, chunkOffset, chunkLength)
             .array()
 
     override fun equals(other: Any?): Boolean {
