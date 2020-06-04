@@ -17,5 +17,9 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
 
     class GroupDoesNotExist(group: String) :
         ModelException("Product with group $group doesn't exist")
+
+    // TODO: Remove this one
+    class NotImplemented() :
+        ModelException("Not implemented")
 }
 

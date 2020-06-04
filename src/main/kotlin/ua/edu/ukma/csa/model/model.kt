@@ -18,8 +18,18 @@ data class Criteria(
     val inGroups: Set<String> = emptySet()
 )
 
+fun getProducts(criteria: Criteria, offset: Int? = null, amount: Int? = null): Either<ModelException, List<Product>> {
+    // TODO: Implement
+    return Left(ModelException.NotImplemented())
+}
+
+fun removeProduct(id: ProductID): Either<ModelException, Unit> {
+    // TODO: Implement
+    return Left(ModelException.NotImplemented())
+}
+
 fun addProduct(product: Product): Either<ModelException.ProductAlreadyExists, Unit> {
-    if (product.id != ProductID.UNSET) {} // This is a error. ProductID is already set, when trying to add new product
+    if (product.id != ProductID.UNSET) {} // TODO: This is a error. ProductID is already set, when trying to add new product
     if (model.containsKey(product.id)) return Left(ModelException.ProductAlreadyExists(product.id))
     model[product.id] = product
     return Right(Unit)
