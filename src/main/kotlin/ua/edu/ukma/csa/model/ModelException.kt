@@ -9,13 +9,13 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
     class ProductCanNotHaveThisCount(id: ProductID, count: Int) :
         ModelException("Product with id $id can`t have this count $count")
 
-    class ProductAlreadyInGroup(product: Product, group: String) :
+    class ProductAlreadyInGroup(product: Product, group: GroupID) :
         ModelException("Product $product is already in group $group")
 
-    class GroupAlreadyExists(group: String) :
+    class GroupAlreadyExists(group: GroupID) :
         ModelException("Product with group $group already exists")
 
-    class GroupDoesNotExist(group: String) :
+    class GroupDoesNotExist(group: GroupID) :
         ModelException("Product with group $group doesn't exist")
 
     // TODO: Remove this one

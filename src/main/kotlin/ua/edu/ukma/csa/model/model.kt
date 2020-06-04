@@ -7,7 +7,26 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 val model = ConcurrentHashMap<ProductID, Product>(100)
-val groups = ConcurrentHashMap<String, HashSet<Product>>(100)
+val groups = ConcurrentHashMap<GroupID, HashSet<Product>>(100)
+
+/*
+    I can imagine we will have the following 3 tables in database:
+
+    Products:
+        id INT PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        count INT NOT NULL DEFAULT(0),
+        price REAL NOT NULL         |or|        price DECIMAL(8,4) NOT NULL
+
+    Groups:
+        id INT PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+
+    ProductGroups:
+        productID INT REFERENCES Products(id),
+        groupID INT REFERENCES Group(id)
+
+ */
 
 // TODO: KDoc this stuff
 
@@ -40,6 +59,7 @@ fun addProduct(product: Product): Either<ModelException.ProductAlreadyExists, Un
     return Right(Unit)
 }
 
+/** Can be removed, cause we have [getProduct] */
 fun getQuantity(id: ProductID): Either<ModelException.ProductDoesNotExist, Int> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
@@ -67,25 +87,27 @@ fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, I
     }
 }
 
-fun addGroup(newGroup: String): Either<ModelException.GroupAlreadyExists, Unit> {
-    val existingGroup = groups[newGroup]
+fun addGroup(newGroup: String): Either<ModelException.GroupAlreadyExists, Group> {
+    val group = Group(id = GroupID.assign(), name = newGroup) // TODO: Should be set by the database
+    val existingGroup = groups[group.id]
     if (existingGroup != null) {
-        return Left(ModelException.GroupAlreadyExists(newGroup))
+        return Left(ModelException.GroupAlreadyExists(group.id))
     }
-    groups[newGroup] = HashSet()
-    return Right(Unit)
+    groups[group.id] = HashSet()
+    return Right(group)
 }
 
-fun assignGroup(id: ProductID, groupName: String): Either<ModelException, Product> {
+fun assignGroup(id: ProductID, groupID: GroupID): Either<ModelException, Unit> {
+    if (groupID == GroupID.UNSET) {} // TODO: This is an error
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
-    val group = groups[groupName] ?: return Left(ModelException.GroupDoesNotExist(groupName))
+    val group = groups[groupID] ?: return Left(ModelException.GroupDoesNotExist(groupID))
     synchronized(product) {
         synchronized(group) {
             return if (product in group) {
-                Left(ModelException.ProductAlreadyInGroup(product, groupName))
+                Left(ModelException.ProductAlreadyInGroup(product, groupID))
             } else {
                 group.add(product)
-                Right(product)
+                Right(Unit)
             }
         }
     }

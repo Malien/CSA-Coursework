@@ -19,6 +19,10 @@ class ProductTest {
     private lateinit var conditioner: Product
     private lateinit var iceCream: Product
 
+    private lateinit var sweets: Group
+    private lateinit var cosmetics: Group
+    private lateinit var diary: Group
+
     @BeforeEach
     fun populate() {
         model.clear()
@@ -32,13 +36,13 @@ class ProductTest {
         addProduct(conditioner)
         addProduct(iceCream)
 
-        addGroup("Sweets")
-        addGroup("Cosmetics")
-        addGroup("Diary")
+        sweets = addGroup("Sweets").handleWithThrow()
+        cosmetics = addGroup("Cosmetics").handleWithThrow()
+        diary = addGroup("Diary").handleWithThrow()
 
-        assignGroup(biscuit.id, "Sweets")
-        assignGroup(conditioner.id, "Cosmetics")
-        assignGroup(iceCream.id, "Diary")
+        assignGroup(biscuit.id, sweets.id)
+        assignGroup(conditioner.id, cosmetics.id)
+        assignGroup(iceCream.id, diary.id)
     }
 
     @Test
@@ -88,31 +92,33 @@ class ProductTest {
 
     @Test
     fun addGroupCheck() {
-        addGroup("Lego").handleWithThrow()
+        val lego = addGroup("Lego").handleWithThrow()
         addGroup("Fruits").handleWithThrow()
         addGroup("Vegetables").handleWithThrow()
         assertLeftType<ModelException.GroupAlreadyExists>(addGroup("Lego"))
-        assignGroup(biscuit.id, "Lego").handleWithThrow()
-        assertLeftType<ModelException.GroupDoesNotExist>(assignGroup(biscuit.id, "Non existent"))
+        assignGroup(biscuit.id, lego.id).handleWithThrow()
+        assertLeftType<ModelException.GroupDoesNotExist>(assignGroup(biscuit.id, GroupID.UNSET))
     }
 
     @RepeatedTest(20)
     fun parallelChanges() {
+        var special: Group? = null
+        var discounted: Group? = null
         val instructionSets = listOf(
             {
                 Either.fx<ModelException, Unit> {
-                    addGroup("Special").bind()
-                    assignGroup(biscuit.id, "Special").bind()
-                    assignGroup(iceCream.id, "Special").bind()
+                    special = addGroup("Special").bind()
+                    assignGroup(biscuit.id, special!!.id).bind()
+                    assignGroup(iceCream.id, special!!.id).bind()
                 }
             }, {
                 Either.fx {
-                    addGroup("Discounted").bind()
+                    discounted = addGroup("Discounted").bind()
 
                     setPrice(biscuit.id, 17.5).bind()
-                    assignGroup(biscuit.id, "Discounted")
+                    assignGroup(biscuit.id, discounted!!.id)
 
-                    assignGroup(conditioner.id, "Discounted").bind()
+                    assignGroup(conditioner.id, discounted!!.id).bind()
                     setPrice(conditioner.id, 9.70).bind()
                     deleteQuantityOfProduct(conditioner.id, 10).bind()
                 }
@@ -141,12 +147,12 @@ class ProductTest {
             .map { thread { it().handleWithThrow() } }
             .forEach { it.join() }
 
-        assertTrue(groups.containsKey("Special"))
-        assertTrue(groups.containsKey("Discounted"))
-        assertTrue(biscuit in groups["Special"]!!)
-        assertTrue(iceCream in groups["Special"]!!)
-        assertTrue(biscuit in groups["Discounted"]!!)
-        assertTrue(conditioner in groups["Discounted"]!!)
+        assertTrue(groups.containsKey(special!!.id))
+        assertTrue(groups.containsKey(discounted!!.id))
+        assertTrue(biscuit in groups[special!!.id]!!)
+        assertTrue(iceCream in groups[special!!.id]!!)
+        assertTrue(biscuit in groups[discounted!!.id]!!)
+        assertTrue(conditioner in groups[discounted!!.id]!!)
         assertEquals(17.5, biscuit.price)
         assertEquals(9.70, conditioner.price)
         assertRight(120, getQuantity(biscuit.id))

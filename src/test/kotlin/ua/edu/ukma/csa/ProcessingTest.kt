@@ -30,6 +30,10 @@ import kotlin.concurrent.thread
 @ExperimentalUnsignedTypes
 class ProcessingTest {
 
+    private lateinit var sweets: Group
+    private lateinit var cosmetics: Group
+    private lateinit var diary: Group
+
     private val random = Random()
 
     private var packetID = 0uL
@@ -69,13 +73,13 @@ class ProcessingTest {
         addProduct(conditioner)
         addProduct(iceCream)
 
-        addGroup("Sweets")
-        addGroup("Cosmetics")
-        addGroup("Diary")
+        sweets = addGroup("Sweets").handleWithThrow()
+        cosmetics = addGroup("Cosmetics").handleWithThrow()
+        diary = addGroup("Diary").handleWithThrow()
 
-        assignGroup(biscuit.id, "Sweets")
-        assignGroup(conditioner.id, "Cosmetics")
-        assignGroup(iceCream.id, "Diary")
+        assignGroup(biscuit.id, sweets.id)
+        assignGroup(conditioner.id, cosmetics.id)
+        assignGroup(iceCream.id, diary.id)
     }
 
     @Test

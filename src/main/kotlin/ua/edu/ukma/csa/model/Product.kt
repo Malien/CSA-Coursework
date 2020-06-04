@@ -3,21 +3,17 @@ package ua.edu.ukma.csa.model
 import kotlinx.serialization.*
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * GOD I WISH THIS COULD BE AN INLINE CLASS
- */
+/** GOD I WISH THIS COULD BE AN INLINE CLASS */
 @Serializable
 data class ProductID(val id: Int) {
     @Serializer(forClass = ProductID::class)
     companion object : KSerializer<ProductID> {
         val UNSET = ProductID(0)
 
-        /**
-         * Temporary solution for assigning IDs. This should be handled by the database
-         */
-        fun assign() = ProductID(assignedIDs.incrementAndGet())
-
         private var assignedIDs = AtomicInteger(0)
+
+        /** Temporary solution for assigning IDs. This should be handled by the database */
+        fun assign() = ProductID(assignedIDs.incrementAndGet())
 
         override val descriptor = PrimitiveDescriptor("ProductID", PrimitiveKind.STRING)
         override fun deserialize(decoder: Decoder) = ProductID(decoder.decodeInt())
@@ -29,7 +25,8 @@ data class Product(
     val id: ProductID = ProductID.UNSET,
     val name: String,
     var count: Int = 0,
-    var price: Double
+    var price: Double,
+    val groups: Set<GroupID> = emptySet()
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
