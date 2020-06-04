@@ -5,9 +5,8 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.serializer
-import ua.edu.ukma.csa.kotlinx.java.util.UUIDSerializer
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
-import java.util.*
+import ua.edu.ukma.csa.model.ProductID
 
 @Serializable
 sealed class Response() {
@@ -27,10 +26,10 @@ sealed class Response() {
     }
 
     @Serializable
-    data class Quantity(@Serializable(with = UUIDSerializer::class) val id: UUID, val count: Int) : Response()
+    data class Quantity(val id: ProductID, val count: Int) : Response()
 
     @Serializable
-    data class Price(@Serializable(with = UUIDSerializer::class) val id: UUID, val count: Double) : Response()
+    data class Price(val id: ProductID, val count: Double) : Response()
 
 }
 

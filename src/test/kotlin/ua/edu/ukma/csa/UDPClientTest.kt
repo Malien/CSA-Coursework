@@ -9,17 +9,13 @@ import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.then
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
-import ua.edu.ukma.csa.model.Product
-import ua.edu.ukma.csa.model.addProduct
-import ua.edu.ukma.csa.model.groups
-import ua.edu.ukma.csa.model.model
+import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.udp.UDPClient
 import ua.edu.ukma.csa.network.udp.UDPServer
 import ua.edu.ukma.csa.network.udp.serve
 import java.net.InetAddress
-import java.util.*
 import kotlin.concurrent.thread
 import kotlin.random.nextInt
 
@@ -29,7 +25,7 @@ class UDPClientTest {
 
     private val server = UDPServer(0)
     private val client = UDPClient.Decrypted(InetAddress.getLocalHost(), server.socket.localPort, 3u)
-    private val biscuit = Product(name = "Biscuit", price = 17.55, count = 10)
+    private val biscuit = Product(id = ProductID.assign(), name = "Biscuit", price = 17.55, count = 10)
 
     init {
         thread {
@@ -85,7 +81,7 @@ class UDPClientTest {
     @Test
     fun `should receive server error`() {
         runBlocking {
-            assertLeftType<FetchException.ServerResponse>(client.getQuantity(UUID.randomUUID()))
+            assertLeftType<FetchException.ServerResponse>(client.getQuantity(ProductID.UNSET))
         }
     }
 

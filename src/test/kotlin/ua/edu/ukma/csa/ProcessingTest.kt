@@ -63,9 +63,9 @@ class ProcessingTest {
         model.clear()
         groups.clear()
 
-        biscuit = Product(name = "Biscuit", count = 100, price = 20.5)
-        conditioner = Product(name = "Hair conditioner", count = 20, price = 13.75)
-        iceCream = Product(name = "Vanilla Ice Cream", count = 50, price = 7.59)
+        biscuit = Product(id = ProductID.assign(), name = "Biscuit", count = 100, price = 20.5)
+        conditioner = Product(id = ProductID.assign(), name = "Hair conditioner", count = 20, price = 13.75)
+        iceCream = Product(id = ProductID.assign(), name = "Vanilla Ice Cream", count = 50, price = 7.59)
 
         addProduct(biscuit)
         addProduct(conditioner)
@@ -240,7 +240,7 @@ class ProcessingTest {
         assertRight(30, getQuantity(conditioner.id))
         assertRight(35, getQuantity(iceCream.id))
 
-        fun requestQuantity(id: UUID) =
+        fun requestQuantity(id: ProductID) =
             GetQuantity(id).toMessage(userID)
                 .map { message -> message.encrypted(key, cipher) }
                 .map { encrypted -> Packet(clientID, encrypted, packetID) }

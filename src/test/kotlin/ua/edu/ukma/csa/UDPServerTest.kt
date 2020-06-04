@@ -5,11 +5,11 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.kotlinx.peek
+import ua.edu.ukma.csa.model.ProductID
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.udp.*
 import java.net.*
 import java.time.Duration
-import java.util.*
 import kotlin.concurrent.thread
 import kotlin.random.nextInt
 
@@ -46,7 +46,7 @@ class UDPServerTest {
 
     @Test
     fun `should transfer packet`() {
-        val request = Request.GetQuantity(UUID.randomUUID()).toMessage(1u).handleWithThrow()
+        val request = Request.GetQuantity(ProductID.UNSET).toMessage(1u).handleWithThrow()
         val packet = Packet(clientID = 2u, message = request, packetID = 3u)
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)

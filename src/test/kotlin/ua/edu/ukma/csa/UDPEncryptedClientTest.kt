@@ -9,10 +9,7 @@ import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.then
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
-import ua.edu.ukma.csa.model.Product
-import ua.edu.ukma.csa.model.addProduct
-import ua.edu.ukma.csa.model.groups
-import ua.edu.ukma.csa.model.model
+import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.udp.UDPClient
@@ -21,7 +18,6 @@ import ua.edu.ukma.csa.network.udp.serve
 import java.net.InetAddress
 import java.security.Key
 import java.security.SecureRandom
-import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import kotlin.concurrent.thread
@@ -50,7 +46,7 @@ class UDPEncryptedClientTest {
         key,
         clientCipher
     )
-    private val biscuit = Product(name = "Biscuit", price = 17.55, count = 10)
+    private val biscuit = Product(id = ProductID.assign(), name = "Biscuit", price = 17.55, count = 10)
 
     init {
         thread {
@@ -106,7 +102,7 @@ class UDPEncryptedClientTest {
     @Test
     fun `should receive server error`() {
         runBlocking {
-            val result = client.getQuantity(UUID.randomUUID())
+            val result = client.getQuantity(ProductID.UNSET)
             assertLeftType<FetchException.ServerResponse>(result)
         }
     }

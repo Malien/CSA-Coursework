@@ -4,10 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.*
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
-import ua.edu.ukma.csa.model.Product
-import ua.edu.ukma.csa.model.addProduct
-import ua.edu.ukma.csa.model.groups
-import ua.edu.ukma.csa.model.model
+import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.tcp.TCPClient
@@ -15,7 +12,6 @@ import ua.edu.ukma.csa.network.tcp.TCPServer
 import ua.edu.ukma.csa.network.tcp.serve
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.util.*
 import kotlin.concurrent.thread
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -25,7 +21,7 @@ class TCPPacketTest {
     private val server = TCPServer(0)
     private val client =
         TCPClient.Decrypted(InetSocketAddress(InetAddress.getLocalHost(), server.serverSocket.localPort), 3u)
-    private val biscuit = Product(name = "Biscuit", price = 17.55, count = 10)
+    private val biscuit = Product(id = ProductID.assign(), name = "Biscuit", price = 17.55, count = 10)
 
     init {
         thread {
@@ -67,7 +63,7 @@ class TCPPacketTest {
     @Test
     fun `should receive server error`() {
         runBlocking {
-            assertLeftType<FetchException.ServerResponse>(client.getQuantity(UUID.randomUUID()))
+            assertLeftType<FetchException.ServerResponse>(client.getQuantity(ProductID.UNSET))
         }
     }
 

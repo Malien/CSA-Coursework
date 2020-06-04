@@ -6,25 +6,33 @@ import arrow.core.Right
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-val model = ConcurrentHashMap<UUID, Product>(100)
+val model = ConcurrentHashMap<ProductID, Product>(100)
 val groups = ConcurrentHashMap<String, HashSet<Product>>(100)
 
-// TODO: JavaDoc this stuff
+// TODO: KDoc this stuff
+
+data class Criteria(
+    val name: String? = null,
+    val fromPrice: Double? = null,
+    val toPrice: Double? = null,
+    val inGroups: Set<String> = emptySet()
+)
 
 fun addProduct(product: Product): Either<ModelException.ProductAlreadyExists, Unit> {
+    if (product.id != ProductID.UNSET) {} // This is a error. ProductID is already set, when trying to add new product
     if (model.containsKey(product.id)) return Left(ModelException.ProductAlreadyExists(product.id))
     model[product.id] = product
     return Right(Unit)
 }
 
-fun getQuantity(id: UUID): Either<ModelException.ProductDoesNotExist, Int> {
+fun getQuantity(id: ProductID): Either<ModelException.ProductDoesNotExist, Int> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
         return Right(product.count)
     }
 }
 
-fun deleteQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Int> {
+fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
         return if (quantity > 0 && quantity <= product.count) {
@@ -34,7 +42,7 @@ fun deleteQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Int
     }
 }
 
-fun addQuantityOfProduct(id: UUID, quantity: Int): Either<ModelException, Int> {
+fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
         return if (quantity > 0) {
@@ -53,7 +61,7 @@ fun addGroup(newGroup: String): Either<ModelException.GroupAlreadyExists, Unit> 
     return Right(Unit)
 }
 
-fun assignGroup(id: UUID, groupName: String): Either<ModelException, Product> {
+fun assignGroup(id: ProductID, groupName: String): Either<ModelException, Product> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     val group = groups[groupName] ?: return Left(ModelException.GroupDoesNotExist(groupName))
     synchronized(product) {
@@ -68,7 +76,7 @@ fun assignGroup(id: UUID, groupName: String): Either<ModelException, Product> {
     }
 }
 
-fun setPrice(id: UUID, price: Double): Either<ModelException, Double> {
+fun setPrice(id: ProductID, price: Double): Either<ModelException, Double> {
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     synchronized(product) {
         if (price > 0) {
