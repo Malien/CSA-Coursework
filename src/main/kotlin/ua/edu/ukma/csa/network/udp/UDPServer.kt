@@ -154,9 +154,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                     }
                 }
             } catch (ignore: SocketTimeoutException) {
-            } catch (e: IOException) {
-                close()
-                throw e
+            } catch (ignore: SocketException) {
             }
         }
     }

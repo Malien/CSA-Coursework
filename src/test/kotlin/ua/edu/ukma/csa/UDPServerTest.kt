@@ -18,6 +18,7 @@ import kotlin.random.nextInt
 class UDPServerTest {
 
     private val server = UDPServer(0)
+    private val userID = UserID.assign()
     private var initialized = false
     private lateinit var socket: DatagramSocket
 
@@ -46,7 +47,7 @@ class UDPServerTest {
 
     @Test
     fun `should transfer packet`() {
-        val request = Request.GetQuantity(ProductID.UNSET).toMessage(1u).handleWithThrow()
+        val request = Request.GetQuantity(ProductID.UNSET).toMessage(userID).handleWithThrow()
         val packet = Packet(clientID = 2u, message = request, packetID = 3u)
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
@@ -62,7 +63,7 @@ class UDPServerTest {
             .take(2048)
             .map { it.toChar() }
             .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(1u).handleWithThrow()
+        val request = Request.AddGroup(randomString).toMessage(userID).handleWithThrow()
         val packet = Packet(clientID = 2u, message = request, packetID = 4u)
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
@@ -78,7 +79,7 @@ class UDPServerTest {
             .take(2048)
             .map { it.toChar() }
             .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(1u).handleWithThrow()
+        val request = Request.AddGroup(randomString).toMessage(userID).handleWithThrow()
         val packet = Packet(clientID = 2u, message = request, packetID = 4u)
         splitData(packet.data, packetID = packet.packetID.toULong())
             .handleWithThrow()
@@ -100,7 +101,7 @@ class UDPServerTest {
             .take(2048)
             .map { it.toChar() }
             .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(1u).handleWithThrow()
+        val request = Request.AddGroup(randomString).toMessage(userID).handleWithThrow()
         val packet = Packet(clientID = 2u, message = request, packetID = 4u)
         splitData(packet.data, packetID = packet.packetID.toULong())
             .handleWithThrow()

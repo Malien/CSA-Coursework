@@ -27,7 +27,7 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
-sealed class TCPClient(private val serverAddress: SocketAddress, private val userID: UInt) : Client {
+sealed class TCPClient(private val serverAddress: SocketAddress, private val userID: UserID) : Client {
     private val socket = Socket()
 
     init {
@@ -158,7 +158,7 @@ sealed class TCPClient(private val serverAddress: SocketAddress, private val use
         socket.close()
     }
 
-    class Decrypted(serverAddress: SocketAddress, userID: UInt) : TCPClient(serverAddress, userID) {
+    class Decrypted(serverAddress: SocketAddress, userID: UserID) : TCPClient(serverAddress, userID) {
         override fun decode(stream: InputStream): Sequence<Either<PacketException, Packet<Message.Decrypted>>> =
             Packet.sequenceFrom(stream)
 
@@ -166,7 +166,7 @@ sealed class TCPClient(private val serverAddress: SocketAddress, private val use
             outputStream.write(packet.data)
     }
 
-    class Encrypted(serverAddress: SocketAddress, userID: UInt, private val key: Key, private val cipher: Cipher) :
+    class Encrypted(serverAddress: SocketAddress, userID: UserID, private val key: Key, private val cipher: Cipher) :
         TCPClient(serverAddress, userID) {
         override fun decode(stream: InputStream) = Packet.sequenceFrom<Message.Encrypted>(stream)
             .map {

@@ -11,7 +11,6 @@ import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.nextByte
-import ua.edu.ukma.csa.kotlinx.nextInt
 import ua.edu.ukma.csa.kotlinx.nextLong
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.kotlinx.serialization.fload
@@ -34,7 +33,7 @@ class ProcessingTest {
     private val random = Random()
 
     private var packetID = 0uL
-    private var userID = 0u
+    private var userID = UserID.assign()
     private var clientID: UByte = 0u
 
     private val key: Key
@@ -50,7 +49,6 @@ class ProcessingTest {
     @BeforeEach
     fun randomize() {
         packetID = random.nextLong(1, Long.MAX_VALUE).toULong()
-        userID = random.nextInt(1, Int.MAX_VALUE).toUInt()
         clientID = random.nextByte(1, Byte.MAX_VALUE).toUByte()
     }
 

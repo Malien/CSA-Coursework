@@ -31,10 +31,10 @@ sealed class Request(@Transient val messageType: MessageType = MessageType.ERR) 
 
 }
 
-inline fun <reified T : Request> T.toMessage(userID: UInt = 0u) =
+inline fun <reified T : Request> T.toMessage(userID: UserID = UserID.SERVER) =
     serialize().map { Message.Decrypted(messageType, userID, message = it) }
 
-fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: UInt = 0u) =
+fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: UserID = UserID.SERVER) =
     serialize(serializer).map { Message.Decrypted(messageType, userID, message = it) }
 
 @OptIn(ImplicitReflectionSerializer::class)

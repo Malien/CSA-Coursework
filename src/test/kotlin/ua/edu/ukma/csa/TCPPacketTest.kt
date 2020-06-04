@@ -7,6 +7,7 @@ import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
+import ua.edu.ukma.csa.network.UserID
 import ua.edu.ukma.csa.network.tcp.TCPClient
 import ua.edu.ukma.csa.network.tcp.TCPServer
 import ua.edu.ukma.csa.network.tcp.serve
@@ -20,7 +21,10 @@ class TCPPacketTest {
 
     private val server = TCPServer(0)
     private val client =
-        TCPClient.Decrypted(InetSocketAddress(InetAddress.getLocalHost(), server.serverSocket.localPort), 3u)
+        TCPClient.Decrypted(
+            InetSocketAddress(InetAddress.getLocalHost(), server.serverSocket.localPort),
+            UserID.assign()
+        )
     private val biscuit = Product(id = ProductID.assign(), name = "Biscuit", price = 17.55, count = 10)
 
     init {

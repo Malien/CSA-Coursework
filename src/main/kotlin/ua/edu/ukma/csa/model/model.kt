@@ -18,6 +18,11 @@ data class Criteria(
     val inGroups: Set<String> = emptySet()
 )
 
+fun getProduct(id: ProductID): Either<ModelException, Product> {
+    // TODO: Implement
+    return Left(ModelException.NotImplemented())
+}
+
 fun getProducts(criteria: Criteria, offset: Int? = null, amount: Int? = null): Either<ModelException, List<Product>> {
     // TODO: Implement
     return Left(ModelException.NotImplemented())

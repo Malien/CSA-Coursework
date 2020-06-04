@@ -6,6 +6,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.security.Key
 import javax.crypto.Cipher
@@ -31,6 +32,7 @@ class TCPServer(
                 if (shouldStop) break
                 val socket = serverSocket.accept()
                 handler(socket.getInputStream(), socket.getOutputStream())
+            } catch (ignore: SocketException) {
             } catch (ignore: SocketTimeoutException) {
             }
         }

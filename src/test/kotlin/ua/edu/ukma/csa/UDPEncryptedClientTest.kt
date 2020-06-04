@@ -12,6 +12,7 @@ import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
+import ua.edu.ukma.csa.network.UserID
 import ua.edu.ukma.csa.network.udp.UDPClient
 import ua.edu.ukma.csa.network.udp.UDPServer
 import ua.edu.ukma.csa.network.udp.serve
@@ -42,7 +43,7 @@ class UDPEncryptedClientTest {
     private val client = UDPClient.Encrypted(
         InetAddress.getLocalHost(),
         server.socket.localPort,
-        3u,
+        UserID.assign(),
         key,
         clientCipher
     )

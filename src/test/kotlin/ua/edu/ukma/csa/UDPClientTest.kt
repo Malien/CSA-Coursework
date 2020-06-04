@@ -12,6 +12,7 @@ import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
+import ua.edu.ukma.csa.network.UserID
 import ua.edu.ukma.csa.network.udp.UDPClient
 import ua.edu.ukma.csa.network.udp.UDPServer
 import ua.edu.ukma.csa.network.udp.serve
@@ -24,7 +25,7 @@ import kotlin.random.nextInt
 class UDPClientTest {
 
     private val server = UDPServer(0)
-    private val client = UDPClient.Decrypted(InetAddress.getLocalHost(), server.socket.localPort, 3u)
+    private val client = UDPClient.Decrypted(InetAddress.getLocalHost(), server.socket.localPort, UserID.assign())
     private val biscuit = Product(id = ProductID.assign(), name = "Biscuit", price = 17.55, count = 10)
 
     init {

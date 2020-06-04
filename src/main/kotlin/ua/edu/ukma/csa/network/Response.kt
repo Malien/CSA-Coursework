@@ -33,10 +33,10 @@ sealed class Response() {
 
 }
 
-inline fun <reified T : Response> T.toMessage(userID: UInt = 0u) =
+inline fun <reified T : Response> T.toMessage(userID: UserID = UserID.SERVER) =
     serialize().map { Message.Decrypted(type, userID, message = it) }
 
-fun <T : Response> T.toMessage(userID: UInt = 0u, serializer: KSerializer<T>) =
+fun <T : Response> T.toMessage(userID: UserID = UserID.SERVER, serializer: KSerializer<T>) =
     serialize(serializer).map { Message.Decrypted(type, userID, message = it) }
 
 @OptIn(ImplicitReflectionSerializer::class)
