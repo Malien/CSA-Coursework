@@ -13,8 +13,6 @@ import java.sql.SQLException
  * @param dbName path to a database file. If path is an empty string, a temporary database is created with unique name
  *               each time. If `":memory:"` is passed, a new in-memory database will be created. In that case no files
  *               will be created. Every invocation of constructor with `":memory:"` path created independent database.
- *               In order to have access to the same in-memory instance of database use `IN_MEMORY` constant in
- *               the companion object
  * @throws SQLException if database connection could not be initialized
  * @throws ClassNotFoundException if SQLite JDBC driver cannot be found
  */
@@ -173,12 +171,4 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         // connection.close() // Like this
     }
 
-    companion object {
-        // Here goes everything that is deemed `static` in java. Like static functions or variables associated with
-        // this class. For e.g. here's SQLite in-memory database shortcut. It is in `lazy` block, meaning that value
-        // won't be computed unless it is accessed by someone else.
-        val IN_MEMORY by lazy {
-            SQLiteModel(":memory:")
-        }
-    }
 }
