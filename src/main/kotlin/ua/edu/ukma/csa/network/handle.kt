@@ -50,10 +50,22 @@ fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message
         addGroup(request.name).map { Response.Ok }
     }
     ASSIGN_GROUP -> processMessage(message) { request: Request.AssignGroup ->
-        assignGroup(request.id, request.group).map { Response.Ok }
+        assignGroup(request.product, request.group).map { Response.Ok }
     }
     SET_PRICE -> processMessage(message) { request: Request.SetPrice ->
         setPrice(request.id, request.price).map { Response.Price(id = request.id, count = it) }
+    }
+    ADD_PRODUCT -> processMessage(message) { request: Request.AddProduct ->
+        addProduct(request.name, request.count, request.price, request.groups).map { Response.Product(it) }
+    }
+    GET_PRODUCT -> processMessage(message) { request: Request.GetProduct ->
+        getProduct(request.id).map { Response.Product(it) }
+    }
+    GET_PRODUCT_LIST -> processMessage(message) { request: Request.GetProductList ->
+        getProducts(request.criteria, request.offset, request.amount).map { Response.ProductList(it) }
+    }
+    REMOVE -> processMessage(message) { request: Request.RemoveProduct ->
+        removeProduct(request.id).map { Response.Ok }
     }
 }.getOrHandle { error -> errorMessage(error.message ?: "") }
 

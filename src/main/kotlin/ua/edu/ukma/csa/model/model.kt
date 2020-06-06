@@ -3,6 +3,7 @@ package ua.edu.ukma.csa.model
 import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
+import kotlinx.serialization.Serializable
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -30,6 +31,7 @@ val groups = ConcurrentHashMap<GroupID, HashSet<Product>>(100)
 
 // TODO: KDoc this stuff
 
+@Serializable
 data class Criteria(
     val name: String? = null,
     val fromPrice: Double? = null,
@@ -52,11 +54,12 @@ fun removeProduct(id: ProductID): Either<ModelException, Unit> {
     return Left(ModelException.NotImplemented())
 }
 
-fun addProduct(product: Product): Either<ModelException.ProductAlreadyExists, Unit> {
-    if (product.id != ProductID.UNSET) {} // TODO: This is a error. ProductID is already set, when trying to add new product
-    if (model.containsKey(product.id)) return Left(ModelException.ProductAlreadyExists(product.id))
-    model[product.id] = product
-    return Right(Unit)
+fun addProduct(name: String, count: Int, price: Double, groups: Set<GroupID>): Either<ModelException, Product> {
+//    if (model.containsKey(product.id)) return Left(ModelException.ProductAlreadyExists(product.id))
+//    model[product.id] = product
+//    return Right(Unit)
+    // TODO: Implement
+    return Left(ModelException.NotImplemented())
 }
 
 /** Can be removed, cause we have [getProduct] */
@@ -98,7 +101,6 @@ fun addGroup(newGroup: String): Either<ModelException.GroupAlreadyExists, Group>
 }
 
 fun assignGroup(id: ProductID, groupID: GroupID): Either<ModelException, Unit> {
-    if (groupID == GroupID.UNSET) {} // TODO: This is an error
     val product = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
     val group = groups[groupID] ?: return Left(ModelException.GroupDoesNotExist(groupID))
     synchronized(product) {

@@ -26,6 +26,12 @@ sealed class Response() {
     }
 
     @Serializable
+    data class Product(val product: ua.edu.ukma.csa.model.Product) : Response()
+
+    @Serializable
+    data class ProductList(val products: List<ua.edu.ukma.csa.model.Product>) : Response()
+
+    @Serializable
     data class Quantity(val id: ProductID, val count: Int) : Response()
 
     @Serializable

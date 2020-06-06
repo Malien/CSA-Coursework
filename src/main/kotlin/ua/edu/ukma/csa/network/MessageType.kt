@@ -14,7 +14,11 @@ enum class MessageType(val typeID: Int) {
     INCLUDE(12),
     ADD_GROUP(13),
     ASSIGN_GROUP(14),
-    SET_PRICE(15);
+    SET_PRICE(15),
+    ADD_PRODUCT(16),
+    GET_PRODUCT(17),
+    GET_PRODUCT_LIST(18),
+    REMOVE(19);
 
     companion object {
         fun fromID(typeID: Int): Option<MessageType> {

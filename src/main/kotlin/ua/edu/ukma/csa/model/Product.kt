@@ -21,6 +21,7 @@ data class ProductID(val id: Int) {
     }
 }
 
+@Serializable
 data class Product(
     val id: ProductID = ProductID.UNSET,
     val name: String,

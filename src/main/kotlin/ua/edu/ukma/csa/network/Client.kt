@@ -5,6 +5,7 @@ import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ImplicitReflectionSerializer
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.serializer
+import ua.edu.ukma.csa.model.GroupID
 import ua.edu.ukma.csa.model.ProductID
 import java.io.Closeable
 
@@ -42,8 +43,8 @@ interface Client : Closeable {
     suspend fun addGroup(name: String, resendBehind: Boolean = true, retries: UInt = 0u) =
         fetch<Request.AddGroup, Response.Ok>(Request.AddGroup(name), resendBehind, retries)
 
-    suspend fun assignGroup(id: ProductID, group: String, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.AssignGroup, Response.Ok>(Request.AssignGroup(id, group), resendBehind, retries)
+    suspend fun assignGroup(product: ProductID, group: GroupID, resendBehind: Boolean = true, retries: UInt = 0u) =
+        fetch<Request.AssignGroup, Response.Ok>(Request.AssignGroup(product, group), resendBehind, retries)
 
     suspend fun setPrice(id: ProductID, price: Double, resendBehind: Boolean = true, retries: UInt = 0u) =
         fetch<Request.SetPrice, Response.Ok>(Request.SetPrice(id, price), resendBehind, retries)
