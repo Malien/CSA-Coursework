@@ -28,13 +28,9 @@ class ProductTest {
         model.clear()
         groups.clear()
 
-        biscuit = Product(id = ProductID.assign(), name = "Biscuit", count = 100, price = 20.5)
-        conditioner = Product(id = ProductID.assign(), name = "Hair conditioner", count = 20, price = 13.75)
-        iceCream = Product(id = ProductID.assign(), name = "Vanilla Ice Cream", count = 50, price = 7.59)
-
-        addProduct(biscuit)
-        addProduct(conditioner)
-        addProduct(iceCream)
+        biscuit = addProduct(name = "Biscuit", count = 100, price = 20.5).handleWithThrow()
+        conditioner = addProduct(name = "Hair conditioner", count = 20, price = 13.75).handleWithThrow()
+        iceCream = addProduct(name = "Vanilla Ice Cream", count = 50, price = 7.59).handleWithThrow()
 
         sweets = addGroup("Sweets").handleWithThrow()
         cosmetics = addGroup("Cosmetics").handleWithThrow()

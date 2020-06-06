@@ -21,4 +21,5 @@ data class GroupID(val id: Int) {
     }
 }
 
+@Serializable
 data class Group(val id: GroupID = GroupID.UNSET, val name: String)

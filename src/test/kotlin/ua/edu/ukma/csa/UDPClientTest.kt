@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import ua.edu.ukma.csa.kotlinx.arrow.core.then
+import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
@@ -26,7 +26,7 @@ class UDPClientTest {
 
     private val server = UDPServer(0)
     private val client = UDPClient.Decrypted(InetAddress.getLocalHost(), server.socket.localPort, UserID.assign())
-    private val biscuit = Product(id = ProductID.assign(), name = "Biscuit", price = 17.55, count = 10)
+    private lateinit var biscuit: Product
 
     init {
         thread {
@@ -38,7 +38,7 @@ class UDPClientTest {
     fun populate() {
         model.clear()
         groups.clear()
-        addProduct(biscuit)
+        addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
     }
 
     @AfterAll
@@ -50,9 +50,9 @@ class UDPClientTest {
     @Test
     fun `should add group`() {
         runBlocking {
-            assertRight(MessageType.OK, client.addGroup("name").map { it.type })
-            assertRight(MessageType.OK, client.assignGroup(biscuit.id, "name").map { it.type })
-            assertTrue(groups["name"]!!.contains(biscuit))
+            val (group) = client.addGroup("name").handleWithThrow()
+            client.assignGroup(biscuit.id, group.id)
+            assertTrue(groups[group.id]!!.contains(biscuit))
         }
     }
 
@@ -72,10 +72,10 @@ class UDPClientTest {
             .map { it.toChar() }
             .joinToString(separator = "")
         runBlocking {
-            val res = client.addGroup(randomString)
-                .then { client.assignGroup(biscuit.id, randomString) }
+            val (group) = client.addGroup(randomString).handleWithThrow()
+            val res = client.assignGroup(biscuit.id, group.id)
             assertRight(MessageType.OK, res.map { it.type })
-            assertTrue(groups[randomString]!!.contains(biscuit))
+            assertTrue(groups[group.id]!!.contains(biscuit))
         }
     }
 

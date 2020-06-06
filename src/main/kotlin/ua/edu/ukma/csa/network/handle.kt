@@ -47,7 +47,7 @@ fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message
         deleteQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = it) }
     }
     ADD_GROUP -> processMessage(message) { request: Request.AddGroup ->
-        addGroup(request.name).map { Response.Ok }
+        addGroup(request.name).map { Response.Group(it) }
     }
     ASSIGN_GROUP -> processMessage(message) { request: Request.AssignGroup ->
         assignGroup(request.product, request.group).map { Response.Ok }

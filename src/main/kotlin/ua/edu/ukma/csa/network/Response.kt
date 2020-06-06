@@ -29,6 +29,9 @@ sealed class Response() {
     data class Product(val product: ua.edu.ukma.csa.model.Product) : Response()
 
     @Serializable
+    data class Group(val group: ua.edu.ukma.csa.model.Group) : Response()
+
+    @Serializable
     data class ProductList(val products: List<ua.edu.ukma.csa.model.Product>) : Response()
 
     @Serializable

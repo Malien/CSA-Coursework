@@ -41,7 +41,7 @@ interface Client : Closeable {
         fetch<Request.GetQuantity, Response.Quantity>(Request.GetQuantity(id), resendBehind, retries)
 
     suspend fun addGroup(name: String, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.AddGroup, Response.Ok>(Request.AddGroup(name), resendBehind, retries)
+        fetch<Request.AddGroup, Response.Group>(Request.AddGroup(name), resendBehind, retries)
 
     suspend fun assignGroup(product: ProductID, group: GroupID, resendBehind: Boolean = true, retries: UInt = 0u) =
         fetch<Request.AssignGroup, Response.Ok>(Request.AssignGroup(product, group), resendBehind, retries)

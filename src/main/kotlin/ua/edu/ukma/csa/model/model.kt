@@ -54,7 +54,7 @@ fun removeProduct(id: ProductID): Either<ModelException, Unit> {
     return Left(ModelException.NotImplemented())
 }
 
-fun addProduct(name: String, count: Int, price: Double, groups: Set<GroupID>): Either<ModelException, Product> {
+fun addProduct(name: String, count: Int = 0, price: Double, groups: Set<GroupID> = emptySet()): Either<ModelException, Product> {
 //    if (model.containsKey(product.id)) return Left(ModelException.ProductAlreadyExists(product.id))
 //    model[product.id] = product
 //    return Right(Unit)
