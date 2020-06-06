@@ -48,6 +48,7 @@ class TCPPacketTest {
     fun close() {
         server.close()
         client.close()
+        model.close()
     }
 
     @Test

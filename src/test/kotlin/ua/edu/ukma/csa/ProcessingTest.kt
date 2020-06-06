@@ -4,9 +4,11 @@ import arrow.core.Left
 import arrow.core.Right
 import arrow.core.flatMap
 import kotlinx.serialization.protobuf.ProtoBuf
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.nextByte
 import ua.edu.ukma.csa.kotlinx.nextLong
@@ -17,7 +19,7 @@ import ua.edu.ukma.csa.model.Product
 import ua.edu.ukma.csa.model.SQLiteModel
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.Packet.Companion.sequenceFrom
-import ua.edu.ukma.csa.network.Request.GetQuantity
+import ua.edu.ukma.csa.network.Request.GetProduct
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.Key
@@ -26,6 +28,7 @@ import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ProcessingTest {
 
     private val model = SQLiteModel(":memory:")
@@ -77,47 +80,52 @@ class ProcessingTest {
         model.assignGroup(iceCream.id, diary.id)
     }
 
+    @AfterAll
+    fun close() {
+        model.close()
+    }
+
     @Test
     fun validRequest() {
-        val request = GetQuantity(biscuit.id)
+        val request = GetProduct(biscuit.id)
         val response = request.toMessage(userID)
             .map { message -> Packet(clientID, message, packetID) }
-            .map(::handlePacket)
+            .map(model::handlePacket)
             .flatMap { packet ->
                 if (packet.message.type == MessageType.OK) Right(packet.message)
                 else Left(assertEquals(MessageType.OK, packet.message.type))
             }
             .flatMap { ProtoBuf.fload(Response.Quantity.serializer(), it.message) }
-        assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
+        assertRight(Response.Product(biscuit), response)
     }
 
     @Test
     fun validEncryptedRequest() {
-        val request = GetQuantity(biscuit.id)
+        val request = GetProduct(biscuit.id)
         val response = request.toMessage(userID)
             .map { message -> message.encrypted(key, cipher) }
             .map { encrypted -> Packet(clientID, encrypted, packetID) }
-            .map { packet -> handlePacket(packet, key, cipher) }
+            .map { packet -> model.handlePacket(packet, key, cipher) }
             .flatMap { packet ->
                 if (packet.message.type == MessageType.OK) Right(packet.message)
                 else Left(assertEquals(MessageType.OK, packet.message.type))
             }
             .map { encryptedMessage -> encryptedMessage.decrypted(key, cipher) }
             .flatMap { ProtoBuf.fload(Response.Quantity.serializer(), it.message) }
-        assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
+        assertRight(Response.Product(biscuit), response)
     }
 
     @Test
     fun invalidMessageType() {
         val message = Message.Decrypted(type = MessageType.ERR, userID = userID)
         val packet = Packet(clientID, message, packetID)
-        val response = handlePacket(packet)
+        val response = model.handlePacket(packet)
         assertEquals(MessageType.ERR, response.message.type)
     }
 
     @Test
     fun validStreamedRequests() {
-        val bytes = generateSequence { GetQuantity(biscuit.id) }
+        val bytes = generateSequence { GetProduct(biscuit.id) }
             .map { it.toMessage(userID).handleWithThrow() }
             .mapIndexed { idx, message -> Packet(clientID, message, packetID = idx.toULong()) }
             .map { it.data }
@@ -130,22 +138,22 @@ class ProcessingTest {
             }
         val inputStream = ByteArrayInputStream(bytes)
         val outputStream = ByteArrayOutputStream()
-        handleStream(inputStream, outputStream)
+        model.handleStream(inputStream, outputStream)
         val processingStream = ByteArrayInputStream(outputStream.toByteArray())
         for ((idx, packet) in sequenceFrom<Message.Decrypted>(processingStream).withIndex()) {
             val response = packet.map {
                 assertEquals(idx, it.packetID.toInt())
                 it.message
             }.flatMap {
-                ProtoBuf.fload(Response.Quantity.serializer(), it.message)
+                ProtoBuf.fload(Response.Product.serializer(), it.message)
             }
-            assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
+            assertRight(Response.Product(biscuit), response)
         }
     }
 
     @Test
     fun validEncryptedStreamedRequests() {
-        val bytes = generateSequence { GetQuantity(biscuit.id) }
+        val bytes = generateSequence { GetProduct(biscuit.id) }
             .map { it.toMessage(userID).handleWithThrow() }
             .map { it.encrypted(key, cipher) }
             .mapIndexed { idx, message -> Packet(clientID, message, idx.toULong()) }
@@ -159,16 +167,16 @@ class ProcessingTest {
             }
         val inputStream = ByteArrayInputStream(bytes)
         val outputStream = ByteArrayOutputStream()
-        handleStream(inputStream, outputStream, key, cipher)
+        model.handleStream(inputStream, outputStream, key, cipher)
         val processingStream = ByteArrayInputStream(outputStream.toByteArray())
         for ((idx, packet) in sequenceFrom<Message.Encrypted>(processingStream).withIndex()) {
             val response = packet.map {
                 assertEquals(idx, it.packetID.toInt())
                 it.message.decrypted(key, cipher)
             }.flatMap {
-                ProtoBuf.fload(Response.Quantity.serializer(), it.message)
+                ProtoBuf.fload(Response.Product.serializer(), it.message)
             }
-            assertRight(Response.Quantity(biscuit.id, biscuit.count), response)
+            assertRight(Response.Product(biscuit), response)
         }
     }
 

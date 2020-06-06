@@ -45,6 +45,7 @@ class UDPClientTest {
     fun close() {
         server.close()
         client.close()
+        model.close()
     }
 
     @Test

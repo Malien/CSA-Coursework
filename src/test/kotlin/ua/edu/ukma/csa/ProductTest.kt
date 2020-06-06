@@ -2,17 +2,16 @@ package ua.edu.ukma.csa
 
 import arrow.core.Either
 import arrow.core.extensions.fx
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.RepeatedTest
-import org.junit.jupiter.api.Test
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
 import kotlin.concurrent.thread
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ProductTest {
 
     private val model = SQLiteModel(":memory:")
@@ -40,6 +39,11 @@ class ProductTest {
         model.assignGroup(biscuit.id, sweets.id)
         model.assignGroup(conditioner.id, cosmetics.id)
         model.assignGroup(iceCream.id, diary.id)
+    }
+
+    @AfterAll
+    fun close() {
+        model.close()
     }
 
     @Test

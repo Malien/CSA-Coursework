@@ -33,6 +33,7 @@ class UDPServerTest {
     @AfterAll
     fun close() {
         server.close()
+        model.close()
     }
 
     @BeforeEach
