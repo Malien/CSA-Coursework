@@ -9,7 +9,8 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.serializer
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.serialization.fload
-import ua.edu.ukma.csa.model.*
+import ua.edu.ukma.csa.model.ModelException
+import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.network.MessageType.*
 import java.io.InputStream
 import java.io.OutputStream
@@ -35,11 +36,8 @@ inline fun <reified Req : Request, reified Res : Response> processMessage(
  * @param message message to be processed
  * @return server response message
  */
-fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message.type) {
+fun ModelSource.handleMessage(message: Message.Decrypted): Message.Decrypted = when (message.type) {
     OK, ERR, PACKET_BEHIND -> Left(RuntimeException("Cannot process request of type ${message.type}"))
-    GET_COUNT -> processMessage(message) { request: Request.GetQuantity ->
-        getQuantity(request.id).map { Response.Quantity(id = request.id, count = it) }
-    }
     INCLUDE -> processMessage(message) { request: Request.Include ->
         addQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = it) }
     }
@@ -62,7 +60,7 @@ fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message
         getProduct(request.id).map { Response.Product(it) }
     }
     GET_PRODUCT_LIST -> processMessage(message) { request: Request.GetProductList ->
-        getProducts(request.criteria, request.offset, request.amount).map { Response.ProductList(it) }
+        getProducts(request.criteria, request.ordering, request.offset, request.amount).map { Response.ProductList(it) }
     }
     REMOVE -> processMessage(message) { request: Request.RemoveProduct ->
         removeProduct(request.id).map { Response.Ok }
@@ -74,7 +72,7 @@ fun handleMessage(message: Message.Decrypted): Message.Decrypted = when (message
  * @param packet incoming packet
  * @return unencrypted response packet
  */
-fun handlePacket(packet: Packet<Message.Decrypted>): Packet<Message.Decrypted> = Packet(
+fun ModelSource.handlePacket(packet: Packet<Message.Decrypted>): Packet<Message.Decrypted> = Packet(
     clientID = 0u,
     message = handleMessage(packet.message),
     packetID = packet.packetID
@@ -87,7 +85,7 @@ fun handlePacket(packet: Packet<Message.Decrypted>): Packet<Message.Decrypted> =
  * @param cipher cipher which will be used for encryption and decryption
  * @return encrypted response packet
  */
-fun handlePacket(packet: Packet<Message.Encrypted>, key: Key, cipher: Cipher): Packet<Message.Encrypted> = Packet(
+fun ModelSource.handlePacket(packet: Packet<Message.Encrypted>, key: Key, cipher: Cipher): Packet<Message.Encrypted> = Packet(
     clientID = 0u,
     message = handleMessage(packet.message.decrypted(key, cipher)).encrypted(key, cipher),
     packetID = packet.packetID
@@ -98,7 +96,7 @@ fun handlePacket(packet: Packet<Message.Encrypted>, key: Key, cipher: Cipher): P
  * @param inputStream stream from which request will come
  * @param outputStream stream to which server responses will be written to
  */
-fun handleStream(inputStream: InputStream, outputStream: OutputStream) =
+fun ModelSource.handleStream(inputStream: InputStream, outputStream: OutputStream) =
     Packet.sequenceFrom<Message.Decrypted>(inputStream)
         .map { it.map(::handlePacket).getOrHandle(::errorPacket) }
         .forEach { outputStream.write(it.data) }
@@ -110,7 +108,7 @@ fun handleStream(inputStream: InputStream, outputStream: OutputStream) =
  * @param key key which will be used for encryption and decryption. TODO: support for asymmetric encryption
  * @param cipher cipher which will be used for encryption and decryption
  */
-fun handleStream(inputStream: InputStream, outputStream: OutputStream, key: Key, cipher: Cipher) =
+fun ModelSource.handleStream(inputStream: InputStream, outputStream: OutputStream, key: Key, cipher: Cipher) =
     Packet.sequenceFrom<Message.Encrypted>(inputStream)
         .map {
             it.map { packet -> handlePacket(packet, key, cipher) }

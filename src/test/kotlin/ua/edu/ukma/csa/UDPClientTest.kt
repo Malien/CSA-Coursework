@@ -9,7 +9,9 @@ import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
-import ua.edu.ukma.csa.model.*
+import ua.edu.ukma.csa.model.Product
+import ua.edu.ukma.csa.model.ProductID
+import ua.edu.ukma.csa.model.SQLiteModel
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.UserID
@@ -20,25 +22,23 @@ import java.net.InetAddress
 import kotlin.concurrent.thread
 import kotlin.random.nextInt
 
-@ExperimentalUnsignedTypes
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UDPClientTest {
+
+    private val model = SQLiteModel(":memory:")
 
     private val server = UDPServer(0)
     private val client = UDPClient.Decrypted(InetAddress.getLocalHost(), server.socket.localPort, UserID.assign())
     private lateinit var biscuit: Product
 
     init {
-        thread {
-            server.serve()
-        }
+        thread { server.serve(model) }
     }
 
     @BeforeEach
     fun populate() {
         model.clear()
-        groups.clear()
-        addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
+        model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
     }
 
     @AfterAll
@@ -52,7 +52,7 @@ class UDPClientTest {
         runBlocking {
             val (group) = client.addGroup("name").handleWithThrow()
             client.assignGroup(biscuit.id, group.id)
-            assertTrue(groups[group.id]!!.contains(biscuit))
+            assertTrue(group.id in model.getProduct(biscuit.id).handleWithThrow().groups)
         }
     }
 
@@ -75,7 +75,7 @@ class UDPClientTest {
             val (group) = client.addGroup(randomString).handleWithThrow()
             val res = client.assignGroup(biscuit.id, group.id)
             assertRight(MessageType.OK, res.map { it.type })
-            assertTrue(groups[group.id]!!.contains(biscuit))
+            assertTrue(group.id in model.getProduct(biscuit.id).handleWithThrow().groups)
         }
     }
 

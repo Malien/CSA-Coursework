@@ -9,7 +9,9 @@ import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
-import ua.edu.ukma.csa.model.*
+import ua.edu.ukma.csa.model.Product
+import ua.edu.ukma.csa.model.ProductID
+import ua.edu.ukma.csa.model.SQLiteModel
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.UserID
 import ua.edu.ukma.csa.network.tcp.TCPClient
@@ -20,8 +22,9 @@ import java.net.InetSocketAddress
 import kotlin.concurrent.thread
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@ExperimentalUnsignedTypes
 class TCPPacketTest {
+
+    private val model = SQLiteModel(":memory:")
 
     private val server = TCPServer(0)
     private val client =
@@ -32,14 +35,13 @@ class TCPPacketTest {
     private lateinit var biscuit: Product
 
     init {
-        thread { server.serve() }
+        thread { server.serve(model) }
     }
 
     @BeforeEach
     fun populate() {
         model.clear()
-        groups.clear()
-        addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
+        model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
     }
 
     @AfterAll
@@ -53,7 +55,7 @@ class TCPPacketTest {
         runBlocking {
             val (group) = client.addGroup("name").handleWithThrow()
             client.assignGroup(biscuit.id, group.id)
-            assertTrue(groups[group.id]!!.contains(biscuit))
+            assertTrue(group.id in model.getProduct(biscuit.id).handleWithThrow().groups)
         }
     }
 

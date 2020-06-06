@@ -15,6 +15,8 @@ import kotlin.concurrent.thread
 
 class ProductTest {
 
+    private val model = SQLiteModel(":memory:")
+
     private lateinit var biscuit: Product
     private lateinit var conditioner: Product
     private lateinit var iceCream: Product
@@ -26,74 +28,73 @@ class ProductTest {
     @BeforeEach
     fun populate() {
         model.clear()
-        groups.clear()
 
-        biscuit = addProduct(name = "Biscuit", count = 100, price = 20.5).handleWithThrow()
-        conditioner = addProduct(name = "Hair conditioner", count = 20, price = 13.75).handleWithThrow()
-        iceCream = addProduct(name = "Vanilla Ice Cream", count = 50, price = 7.59).handleWithThrow()
+        biscuit = model.addProduct(name = "Biscuit", count = 100, price = 20.5).handleWithThrow()
+        conditioner = model.addProduct(name = "Hair conditioner", count = 20, price = 13.75).handleWithThrow()
+        iceCream = model.addProduct(name = "Vanilla Ice Cream", count = 50, price = 7.59).handleWithThrow()
 
-        sweets = addGroup("Sweets").handleWithThrow()
-        cosmetics = addGroup("Cosmetics").handleWithThrow()
-        diary = addGroup("Diary").handleWithThrow()
+        sweets = model.addGroup("Sweets").handleWithThrow()
+        cosmetics = model.addGroup("Cosmetics").handleWithThrow()
+        diary = model.addGroup("Diary").handleWithThrow()
 
-        assignGroup(biscuit.id, sweets.id)
-        assignGroup(conditioner.id, cosmetics.id)
-        assignGroup(iceCream.id, diary.id)
+        model.assignGroup(biscuit.id, sweets.id)
+        model.assignGroup(conditioner.id, cosmetics.id)
+        model.assignGroup(iceCream.id, diary.id)
     }
 
     @Test
     fun getQuantityCheck() {
-        val count = getQuantity(biscuit.id)
+        val count = model.getProduct(biscuit.id).map { it.count }
         assertRight(100, count)
     }
 
     @Test
     fun setPriceValidate() {
-        val newPrice = setPrice(biscuit.id, 15.6)
+        val newPrice = model.setPrice(biscuit.id, 15.6)
         assertRight(15.6, newPrice)
     }
 
     @Test
     fun setPriceInvalidate() {
-        val result = setPrice(biscuit.id, -1.5)
+        val result = model.setPrice(biscuit.id, -1.5)
         assertLeftType<ModelException.ProductCanNotHaveThisPrice>(result)
     }
 
     @Test
     fun deleteQuantityOfProductValidate() {
-        val newCount = deleteQuantityOfProduct(biscuit.id, 20)
+        val newCount = model.deleteQuantityOfProduct(biscuit.id, 20)
         assertRight(80, newCount)
     }
 
     @Test
     fun deleteQuantityOfProductNegativeMeaning() {
-        assertLeftType<ModelException.ProductCanNotHaveThisCount>(deleteQuantityOfProduct(biscuit.id, 120))
+        assertLeftType<ModelException.ProductCanNotHaveThisCount>(model.deleteQuantityOfProduct(biscuit.id, 120))
     }
 
     @Test
     fun deleteQuantityOfProductLowerThanNull() {
-        assertLeftType<ModelException.ProductCanNotHaveThisCount>(deleteQuantityOfProduct(biscuit.id, -5))
+        assertLeftType<ModelException.ProductCanNotHaveThisCount>(model.deleteQuantityOfProduct(biscuit.id, -5))
     }
 
     @Test
     fun addQuantityOfProductValidate() {
-        val newCount = addQuantityOfProduct(biscuit.id, 50)
+        val newCount = model.addQuantityOfProduct(biscuit.id, 50)
         assertRight(150, newCount)
     }
 
     @Test
     fun addQuantityOfProductInvalidate() {
-        assertLeftType<ModelException.ProductCanNotHaveThisCount>(addQuantityOfProduct(biscuit.id, -50))
+        assertLeftType<ModelException.ProductCanNotHaveThisCount>(model.addQuantityOfProduct(biscuit.id, -50))
     }
 
     @Test
     fun addGroupCheck() {
-        val lego = addGroup("Lego").handleWithThrow()
-        addGroup("Fruits").handleWithThrow()
-        addGroup("Vegetables").handleWithThrow()
-        assertLeftType<ModelException.GroupAlreadyExists>(addGroup("Lego"))
-        assignGroup(biscuit.id, lego.id).handleWithThrow()
-        assertLeftType<ModelException.GroupDoesNotExist>(assignGroup(biscuit.id, GroupID.UNSET))
+        val lego = model.addGroup("Lego").handleWithThrow()
+        model.addGroup("Fruits").handleWithThrow()
+        model.addGroup("Vegetables").handleWithThrow()
+        assertLeftType<ModelException.GroupAlreadyExists>(model.addGroup("Lego"))
+        model.assignGroup(biscuit.id, lego.id).handleWithThrow()
+        assertLeftType<ModelException.GroupDoesNotExist>(model.assignGroup(biscuit.id, GroupID.UNSET))
     }
 
     @RepeatedTest(20)
@@ -103,38 +104,38 @@ class ProductTest {
         val instructionSets = listOf(
             {
                 Either.fx<ModelException, Unit> {
-                    special = addGroup("Special").bind()
-                    assignGroup(biscuit.id, special!!.id).bind()
-                    assignGroup(iceCream.id, special!!.id).bind()
+                    special = model.addGroup("Special").bind()
+                    model.assignGroup(biscuit.id, special!!.id).bind()
+                    model.assignGroup(iceCream.id, special!!.id).bind()
                 }
             }, {
                 Either.fx {
-                    discounted = addGroup("Discounted").bind()
+                    discounted = model.addGroup("Discounted").bind()
 
-                    setPrice(biscuit.id, 17.5).bind()
-                    assignGroup(biscuit.id, discounted!!.id)
+                    model.setPrice(biscuit.id, 17.5).bind()
+                    model.assignGroup(biscuit.id, discounted!!.id)
 
-                    assignGroup(conditioner.id, discounted!!.id).bind()
-                    setPrice(conditioner.id, 9.70).bind()
-                    deleteQuantityOfProduct(conditioner.id, 10).bind()
+                    model.assignGroup(conditioner.id, discounted!!.id).bind()
+                    model.setPrice(conditioner.id, 9.70).bind()
+                    model.deleteQuantityOfProduct(conditioner.id, 10).bind()
                 }
             }, {
-                deleteQuantityOfProduct(biscuit.id, 20).map { Unit }
+                model.deleteQuantityOfProduct(biscuit.id, 20).map { Unit }
             }, {
                 Either.fx {
-                    deleteQuantityOfProduct(biscuit.id, 10).bind()
-                    deleteQuantityOfProduct(iceCream.id, 10).bind()
-                }
-            }, {
-                Either.fx {
-                    deleteQuantityOfProduct(biscuit.id, 10).bind()
-                    deleteQuantityOfProduct(iceCream.id, 10).bind()
+                    model.deleteQuantityOfProduct(biscuit.id, 10).bind()
+                    model.deleteQuantityOfProduct(iceCream.id, 10).bind()
                 }
             }, {
                 Either.fx {
-                    addQuantityOfProduct(biscuit.id, 60).bind()
-                    addQuantityOfProduct(conditioner.id, 20).bind()
-                    addQuantityOfProduct(iceCream.id, 5).bind()
+                    model.deleteQuantityOfProduct(biscuit.id, 10).bind()
+                    model.deleteQuantityOfProduct(iceCream.id, 10).bind()
+                }
+            }, {
+                Either.fx {
+                    model.addQuantityOfProduct(biscuit.id, 60).bind()
+                    model.addQuantityOfProduct(conditioner.id, 20).bind()
+                    model.addQuantityOfProduct(iceCream.id, 5).bind()
                 }
             }
         )
@@ -143,17 +144,15 @@ class ProductTest {
             .map { thread { it().handleWithThrow() } }
             .forEach { it.join() }
 
-        assertTrue(groups.containsKey(special!!.id))
-        assertTrue(groups.containsKey(discounted!!.id))
-        assertTrue(biscuit in groups[special!!.id]!!)
-        assertTrue(iceCream in groups[special!!.id]!!)
-        assertTrue(biscuit in groups[discounted!!.id]!!)
-        assertTrue(conditioner in groups[discounted!!.id]!!)
+        assertTrue(special!!.id in model.getProduct(biscuit.id).handleWithThrow().groups)
+        assertTrue(special!!.id in model.getProduct(iceCream.id).handleWithThrow().groups)
+        assertTrue(discounted!!.id in model.getProduct(biscuit.id).handleWithThrow().groups)
+        assertTrue(discounted!!.id in model.getProduct(conditioner.id).handleWithThrow().groups)
         assertEquals(17.5, biscuit.price)
         assertEquals(9.70, conditioner.price)
-        assertRight(120, getQuantity(biscuit.id))
-        assertRight(30, getQuantity(conditioner.id))
-        assertRight(35, getQuantity(iceCream.id))
+        assertRight(120, model.getProduct(biscuit.id).map { it.count })
+        assertRight(30, model.getProduct(conditioner.id).map { it.count })
+        assertRight(35, model.getProduct(iceCream.id).map { it.count })
     }
 
 }

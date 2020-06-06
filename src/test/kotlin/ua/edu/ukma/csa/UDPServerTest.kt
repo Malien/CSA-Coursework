@@ -1,11 +1,15 @@
 package ua.edu.ukma.csa
 
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.kotlinx.peek
 import ua.edu.ukma.csa.model.ProductID
+import ua.edu.ukma.csa.model.SQLiteModel
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.udp.*
 import java.net.*
@@ -17,26 +21,18 @@ import kotlin.random.nextInt
 @ExperimentalUnsignedTypes
 class UDPServerTest {
 
+    private val model = SQLiteModel(":memory:")
     private val server = UDPServer(0)
     private val userID = UserID.assign()
-    private var initialized = false
     private lateinit var socket: DatagramSocket
 
     init {
-        thread {
-            initialized = true
-            server.serve()
-        }
+        thread { server.serve(model) }
     }
 
     @AfterAll
     fun close() {
         server.close()
-    }
-
-    @BeforeAll
-    fun waitInitialization() {
-        while (!initialized) Thread.yield()
     }
 
     @BeforeEach
@@ -47,7 +43,7 @@ class UDPServerTest {
 
     @Test
     fun `should transfer packet`() {
-        val request = Request.GetQuantity(ProductID.UNSET).toMessage(userID).handleWithThrow()
+        val request = Request.GetProduct(ProductID.UNSET).toMessage(userID).handleWithThrow()
         val packet = Packet(clientID = 2u, message = request, packetID = 3u)
         socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)

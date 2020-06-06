@@ -2,6 +2,7 @@ package ua.edu.ukma.csa.network.udp
 
 import arrow.core.Either
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
+import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.network.*
 import java.io.Closeable
 import java.io.IOException
@@ -195,8 +196,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
  * [Response.Error] to the sender.
  * @return newly created thread which handles the processing
  */
-@ExperimentalUnsignedTypes
-fun UDPServer.serve() = serve { (data, address, packetCount) ->
+fun UDPServer.serve(model: ModelSource) = serve { (data, address, packetCount) ->
     thread(name = "UDP-Processing-Thread") {
         socket.send(
             when (val request = Packet.decode<Message.Decrypted>(data)) {
@@ -204,7 +204,7 @@ fun UDPServer.serve() = serve { (data, address, packetCount) ->
                     if (packetCount >= request.b.packetID) {
                         val response = Response.PacketBehind.toMessage().handleWithThrow()
                         Packet(clientID = 0u, message = response, packetID = request.b.packetID)
-                    } else handlePacket(request.b)
+                    } else model.handlePacket(request.b)
                 }
                 is Either.Left -> {
                     val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
@@ -226,8 +226,7 @@ fun UDPServer.serve() = serve { (data, address, packetCount) ->
  * @param cipher cipher which will be used to decrypt message. Takes ownership of cipher
  * @return newly created thread which handles the processing
  */
-@ExperimentalUnsignedTypes
-fun UDPServer.serve(key: Key, cipher: Cipher) = serve { (data, address, packetCount) ->
+fun UDPServer.serve(model: ModelSource, key: Key, cipher: Cipher) = serve { (data, address, packetCount) ->
     thread(name = "UDP-Processing-Thread") {
         socket.send(
             when (val request = Packet.decode<Message.Encrypted>(data)) {
@@ -235,7 +234,7 @@ fun UDPServer.serve(key: Key, cipher: Cipher) = serve { (data, address, packetCo
                     if (packetCount >= request.b.packetID) {
                         val response = Response.PacketBehind.toMessage().handleWithThrow().encrypted(key, cipher)
                         Packet(clientID = 0u, message = response, packetID = request.b.packetID)
-                    } else handlePacket(request.b, key, cipher)
+                    } else model.handlePacket(request.b, key, cipher)
                 }
                 is Either.Left -> {
                     val response =

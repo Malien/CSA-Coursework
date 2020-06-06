@@ -12,7 +12,9 @@ import ua.edu.ukma.csa.kotlinx.nextByte
 import ua.edu.ukma.csa.kotlinx.nextLong
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.kotlinx.serialization.fload
-import ua.edu.ukma.csa.model.*
+import ua.edu.ukma.csa.model.Group
+import ua.edu.ukma.csa.model.Product
+import ua.edu.ukma.csa.model.SQLiteModel
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.Packet.Companion.sequenceFrom
 import ua.edu.ukma.csa.network.Request.GetQuantity
@@ -24,8 +26,9 @@ import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 
-@ExperimentalUnsignedTypes
 class ProcessingTest {
+
+    private val model = SQLiteModel(":memory:")
 
     private lateinit var sweets: Group
     private lateinit var cosmetics: Group
@@ -60,19 +63,18 @@ class ProcessingTest {
     @BeforeEach
     fun populate() {
         model.clear()
-        groups.clear()
 
-        biscuit = addProduct(name = "Biscuit", count = 100, price = 20.5).handleWithThrow()
-        conditioner = addProduct(name = "Hair conditioner", count = 20, price = 13.75).handleWithThrow()
-        iceCream = addProduct(name = "Vanilla Ice Cream", count = 50, price = 7.59).handleWithThrow()
+        biscuit = model.addProduct(name = "Biscuit", count = 100, price = 20.5).handleWithThrow()
+        conditioner = model.addProduct(name = "Hair conditioner", count = 20, price = 13.75).handleWithThrow()
+        iceCream = model.addProduct(name = "Vanilla Ice Cream", count = 50, price = 7.59).handleWithThrow()
 
-        sweets = addGroup("Sweets").handleWithThrow()
-        cosmetics = addGroup("Cosmetics").handleWithThrow()
-        diary = addGroup("Diary").handleWithThrow()
+        sweets = model.addGroup("Sweets").handleWithThrow()
+        cosmetics = model.addGroup("Cosmetics").handleWithThrow()
+        diary = model.addGroup("Diary").handleWithThrow()
 
-        assignGroup(biscuit.id, sweets.id)
-        assignGroup(conditioner.id, cosmetics.id)
-        assignGroup(iceCream.id, diary.id)
+        model.assignGroup(biscuit.id, sweets.id)
+        model.assignGroup(conditioner.id, cosmetics.id)
+        model.assignGroup(iceCream.id, diary.id)
     }
 
     @Test

@@ -16,6 +16,14 @@ enum class Order { ASCENDING, DESCENDING }
 
 enum class ProductProperty { ID, NAME, PRICE, COUNT }
 
+@RequiresOptIn(
+    level = RequiresOptIn.Level.ERROR,
+    message = "This feature is supposed to be used only in testing. Production invocations are prohibited."
+)
+@Retention(AnnotationRetention.BINARY)
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
+annotation class TestingOnly
+
 @Serializable
 data class Ordering(
     val property: ProductProperty,
@@ -119,4 +127,11 @@ interface ModelSource {
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
     fun setPrice(id: ProductID, price: Double): Either<ModelException, Double>
+
+    /**
+     * Clear all of the data from model. **NOTE: USE REALLY CAREFULLY AND FOR TESTS ONLY**
+     * If model prohibits clears [ModelException] is returned or [Unit] otherwise
+     */
+    @TestingOnly
+    fun clear(): Either<ModelException, Unit>
 }

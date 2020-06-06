@@ -9,14 +9,13 @@ enum class MessageType(val typeID: Int) {
     OK(0),
     ERR(1),
     PACKET_BEHIND(2),
-    GET_COUNT(10),
+    GET_PRODUCT(10),
     EXCLUDE(11),
     INCLUDE(12),
     ADD_GROUP(13),
     ASSIGN_GROUP(14),
     SET_PRICE(15),
     ADD_PRODUCT(16),
-    GET_PRODUCT(17),
     GET_PRODUCT_LIST(18),
     REMOVE(19);
 

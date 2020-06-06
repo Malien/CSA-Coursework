@@ -151,11 +151,20 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * Update the price of product in the model
      * @param id [ProductID] of a product which price will be set
      * @param price new price of a product
-     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or product's current price otherwise
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
     override fun setPrice(id: ProductID, price: Double): Either<ModelException, Double> {
+        TODO("Not yet implemented")
+    }
+
+    /**
+     * Erase all of the data from the model. **NOTE: USE REALLY CAREFULLY AND IN TESTS ONLY**
+     * If model prohibits clears [ModelException] is returned or [Unit] otherwise
+     */
+    @TestingOnly
+    override fun clear(): Either<ModelException, Unit> {
         TODO("Not yet implemented")
     }
 

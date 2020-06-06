@@ -1,5 +1,6 @@
 package ua.edu.ukma.csa.network.tcp
 
+import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.network.handleStream
 import java.io.Closeable
 import java.io.InputStream
@@ -49,10 +50,10 @@ class TCPServer(
 
 }
 
-fun TCPServer.serve() = serve { inputStream, outputStream ->
-    thread { handleStream(inputStream, outputStream) }
+fun TCPServer.serve(model: ModelSource) = serve { inputStream, outputStream ->
+    thread { model.handleStream(inputStream, outputStream) }
 }
 
-fun TCPServer.serve(key: Key, cipher: Cipher) = serve { inputStream, outputStream ->
-    thread { handleStream(inputStream, outputStream, key, cipher) }
+fun TCPServer.serve(model: ModelSource, key: Key, cipher: Cipher) = serve { inputStream, outputStream ->
+    thread { model.handleStream(inputStream, outputStream, key, cipher) }
 }

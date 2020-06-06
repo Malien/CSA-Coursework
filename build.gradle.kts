@@ -45,8 +45,20 @@ tasks {
         useJUnitPlatform()
     }
 }
+
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.kotlinOptions {
-    freeCompilerArgs =
-        listOf("-Xopt-in=kotlin.RequiresOptIn", "-Xinline-classes", "-Xopt-in=kotlin.ExperimentalUnsignedTypes")
+    freeCompilerArgs = listOf(
+        "-Xopt-in=kotlin.RequiresOptIn",
+        "-Xinline-classes",
+        "-Xopt-in=kotlin.ExperimentalUnsignedTypes"
+    )
+}
+
+val compileTestKotlin: KotlinCompile by tasks
+compileTestKotlin.kotlinOptions {
+    freeCompilerArgs = listOf(
+        "-Xopt-in=kotlin.ExperimentalUnsignedTypes",
+        "-Xopt-in=ua.edu.ukma.csa.model.TestingOnly"
+    )
 }
