@@ -25,8 +25,8 @@ data class ProductID(val id: Int) {
 data class Product(
     val id: ProductID = ProductID.UNSET,
     val name: String,
-    var count: Int = 0,
-    var price: Double,
+    val count: Int = 0,
+    val price: Double,
     val groups: Set<GroupID> = emptySet()
 ) {
     override fun equals(other: Any?): Boolean {
