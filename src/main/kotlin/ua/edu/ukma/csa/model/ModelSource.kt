@@ -6,9 +6,6 @@ import arrow.core.Right
 import kotlinx.serialization.Serializable
 import java.util.concurrent.ConcurrentHashMap
 
-val model = ConcurrentHashMap<ProductID, Product>(100)
-val groups = ConcurrentHashMap<GroupID, HashSet<Product>>(100)
-
 @Serializable
 data class Criteria(
     val name: String? = null,

@@ -39,16 +39,30 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
 
     */
 
-    private val connection: Connection = DriverManager.getConnection("jdbc:sqlite: $dbName")
+    private val connection: Connection = DriverManager.getConnection("jdbc:sqlite:$dbName")
 
     init {
         // Here we initialize connection and other db stuff
+        try {
+            Class.forName("org.sqlite.JDBC")
+        } catch (e: ClassNotFoundException) {
+            println("SQLite JDBC driver cannot be found")
+            throw RuntimeException("Cannot find class$e")
+        } catch (e: SQLException) {
+            println("Database connection could not be initialized")
+            throw RuntimeException("Cannot connect$e")
+        }
+    }
 
-        val forName = Class.forName("org.sqlite.JDBC")
-        val connect = connection
-        throw ClassNotFoundException("SQLite JDBC driver cannot be found")
-        throw SQLException("Database connection could not be initialized")
-        throw RuntimeException("Cannot find class")
+    fun createTable() {
+        val tableOfProduct = """
+         Create table if not exists (
+            id INT PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            count INT NOT NULL DEFAULT(0),
+            price REAL NOT NULL )
+        """.trimMargin()
+        connection.createStatement().executeUpdate(tableOfProduct)
     }
 
 
@@ -59,10 +73,7 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
     override fun getProduct(id: ProductID): Either<ModelException, Product> {
-        val prod = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
-        synchronized(prod) {
-            return Right(prod)
-        }
+
     }
 
     /**
@@ -81,12 +92,21 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         offset: Int?,
         amount: Int?
     ): Either<ModelException, List<Product>> {
-        val listOfProduct = ArrayList(model.values)
-        //listOfProduct.filter { }
-        if (ordering == null) {
-            listOfProduct.sortBy { it.name }
-        } //else listOfProduct.sortBy { }
-        return Right(listOfProduct)
+        val statement = connection.createStatement()
+        val resultSet = statement.executeQuery(
+            String.format("""select from 'products' limit %s offset %s """, offset, offset * amount)
+        )
+
+        val products = ArrayList<Product>()
+        while (resultSet.next()) {
+            products.add(
+                Product(
+                    resultSet.getInt("id"), resultSet.getString("name"),
+                    resultSet.getInt("count"), resultSet.getDouble("price")
+                )
+            )
+        }
+        return Right(products)
     }
 
     /**
@@ -96,11 +116,6 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
     override fun removeProduct(id: ProductID): Either<ModelException, Unit> {
-        val prod = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
-        synchronized(prod) {
-            model.remove(id)
-            return Right(Unit)
-        }
     }
 
     /**
@@ -112,17 +127,22 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Product] otherwise
      */
     override fun addProduct(
-        id: ProductID,
         name: String,
         count: Int,
         price: Double,
         groups: Set<GroupID>
     ): Either<ModelException, Product> {
-        var prod = model[id] ?: return Left(ModelException.ProductAlreadyExists(id))
-        synchronized(prod) {
-            prod = Product(id, name, count, price, groups)
-            return Right(prod)
-        }
+        val insertStatement =
+            connection.prepareStatement("""inset into products(name, count, price, groups) values(?,?,?,?)""")
+        connection.autoCommit(false)
+        insertStatement.setString(1, name)
+        insertStatement.setString(2, count.toString())
+        insertStatement.setString(3, price.toString())
+        insertStatement.setString(4, groups.toString())
+        insertStatement.execute()
+        val result = insertStatement.generatedKeys()
+        connection.commit()
+        return Right(result)
     }
 
     /**
@@ -136,13 +156,6 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
     override fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-        val prod = model[id] ?: return Left(ModelException.ProductAlreadyExists(id))
-        synchronized(prod) {
-            return if (quantity > 0 && quantity < prod.count) {
-                prod.count -= quantity
-                Right(prod.count)
-            } else return Left(ModelException.ProductCanNotHaveThisCount(id, quantity))
-        }
     }
 
     /**
@@ -154,13 +167,6 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
     override fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-        val prod = model[id] ?: return Left(ModelException.ProductAlreadyExists(id))
-        synchronized(prod) {
-            return if (quantity > 0) {
-                prod.count += quantity
-                Right(prod.count)
-            } else return Left(ModelException.ProductDoesNotExist(id))
-        }
     }
 
     /**
@@ -169,12 +175,7 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
     override fun addGroup(group: GroupID, name: String): Either<ModelException, Group> {
-        val existingGroup = groups[name]
-        if (existingGroup != null) {
-            return Left(ModelException.GroupAlreadyExists(name))
-        }
-        val addGroup = Group(group, name)
-        return Right(addGroup)
+
     }
 
     /**
@@ -187,18 +188,6 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      */
     override fun assignGroup(product: ProductID, groupId: GroupID): Either<ModelException, Unit> {
 
-        val prod = model[product] ?: return Left(ModelException.ProductDoesNotExist(product))
-        val group = groups[groupId] ?: return Left(ModelException.GroupDoesNotExist(groupId))
-        synchronized(prod) {
-            synchronized(group) {
-                return if (prod in group) {
-                    Left(ModelException.ProductAlreadyInGroup(prod, groupId))
-                } else {
-                    group.add(prod)
-                    Right(Unit)
-                }
-            }
-        }
     }
 
     /**
@@ -210,13 +199,7 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
     override fun setPrice(id: ProductID, price: Double): Either<ModelException, Double> {
-        val prod = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
-        synchronized(prod) {
-            return if (price > 0) {
-                prod.price = price
-                Right(prod.price)
-            } else return Left(ModelException.ProductCanNotHaveThisPrice(id, price))
-        }
+
     }
 
     /**
@@ -225,13 +208,14 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      */
     @TestingOnly
     override fun clear(): Either<ModelException, Unit> {
-        model.clear()
+        val statement = connection.createStatement()
+        statement.execute("delete from 'ptoducts'")
         return Right(Unit)
     }
 
     override fun close() {
-        TODO("Here we get free any resources left. This includes database connections")
         connection.close() // Like this
     }
 
 }
+
