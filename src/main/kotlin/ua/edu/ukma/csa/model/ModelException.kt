@@ -12,7 +12,7 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
     class ProductAlreadyInGroup(product: Product, group: GroupID) :
         ModelException("Product $product is already in group $group")
 
-    class GroupAlreadyExists(group: GroupID) :
+    class GroupAlreadyExists(group: String) :
         ModelException("Product with group $group already exists")
 
     class GroupDoesNotExist(group: GroupID) :

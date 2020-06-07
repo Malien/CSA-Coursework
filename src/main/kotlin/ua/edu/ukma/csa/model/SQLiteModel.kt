@@ -2,8 +2,11 @@ package ua.edu.ukma.csa.model
 
 import arrow.core.Either
 import arrow.core.Left
+import arrow.core.Right
 import java.io.Closeable
+import java.lang.RuntimeException
 import java.sql.Connection
+import java.sql.DriverManager
 import java.sql.SQLException
 
 /**
@@ -36,11 +39,18 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
 
     */
 
-    val connection: Connection = TODO("Not yet implemented")
+    private val connection: Connection = DriverManager.getConnection("jdbc:sqlite: $dbName")
 
     init {
         // Here we initialize connection and other db stuff
+
+        val forName = Class.forName("org.sqlite.JDBC")
+        val connect = connection
+        throw ClassNotFoundException("SQLite JDBC driver cannot be found")
+        throw SQLException("Database connection could not be initialized")
+        throw RuntimeException("Cannot find class")
     }
+
 
     /**
      * Retrieve [product][Product] from model by it's id.
@@ -49,7 +59,10 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
     override fun getProduct(id: ProductID): Either<ModelException, Product> {
-        TODO("Not yet implemented")
+        val prod = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
+        synchronized(prod) {
+            return Right(prod)
+        }
     }
 
     /**
@@ -68,7 +81,12 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         offset: Int?,
         amount: Int?
     ): Either<ModelException, List<Product>> {
-        TODO("Not yet implemented")
+        val listOfProduct = ArrayList(model.values)
+        //listOfProduct.filter { }
+        if (ordering == null) {
+            listOfProduct.sortBy { it.name }
+        } //else listOfProduct.sortBy { }
+        return Right(listOfProduct)
     }
 
     /**
@@ -78,7 +96,11 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
     override fun removeProduct(id: ProductID): Either<ModelException, Unit> {
-        TODO("Not yet implemented")
+        val prod = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
+        synchronized(prod) {
+            model.remove(id)
+            return Right(Unit)
+        }
     }
 
     /**
@@ -90,12 +112,17 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Product] otherwise
      */
     override fun addProduct(
+        id: ProductID,
         name: String,
         count: Int,
         price: Double,
         groups: Set<GroupID>
     ): Either<ModelException, Product> {
-        TODO("Not yet implemented")
+        var prod = model[id] ?: return Left(ModelException.ProductAlreadyExists(id))
+        synchronized(prod) {
+            prod = Product(id, name, count, price, groups)
+            return Right(prod)
+        }
     }
 
     /**
@@ -109,7 +136,13 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
     override fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-        TODO("Not yet implemented")
+        val prod = model[id] ?: return Left(ModelException.ProductAlreadyExists(id))
+        synchronized(prod) {
+            return if (quantity > 0 && quantity < prod.count) {
+                prod.count -= quantity
+                Right(prod.count)
+            } else return Left(ModelException.ProductCanNotHaveThisCount(id, quantity))
+        }
     }
 
     /**
@@ -121,7 +154,13 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
     override fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-        TODO("Not yet implemented")
+        val prod = model[id] ?: return Left(ModelException.ProductAlreadyExists(id))
+        synchronized(prod) {
+            return if (quantity > 0) {
+                prod.count += quantity
+                Right(prod.count)
+            } else return Left(ModelException.ProductDoesNotExist(id))
+        }
     }
 
     /**
@@ -129,20 +168,37 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @param name name of the new group
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
-    override fun addGroup(name: String): Either<ModelException, Group> {
-        TODO("Not yet implemented")
+    override fun addGroup(group: GroupID, name: String): Either<ModelException, Group> {
+        val existingGroup = groups[name]
+        if (existingGroup != null) {
+            return Left(ModelException.GroupAlreadyExists(name))
+        }
+        val addGroup = Group(group, name)
+        return Right(addGroup)
     }
 
     /**
      * Assign group by it's [id][GroupID] to the product
      * @param product [ProductID] of a product to assign group to
-     * @param group [GroupID] of a group that is assigned to the product
+     * @param groupId [GroupID] of a group that is assigned to the product
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
      * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
-    override fun assignGroup(product: ProductID, group: GroupID): Either<ModelException, Unit> {
-        TODO("Not yet implemented")
+    override fun assignGroup(product: ProductID, groupId: GroupID): Either<ModelException, Unit> {
+
+        val prod = model[product] ?: return Left(ModelException.ProductDoesNotExist(product))
+        val group = groups[groupId] ?: return Left(ModelException.GroupDoesNotExist(groupId))
+        synchronized(prod) {
+            synchronized(group) {
+                return if (prod in group) {
+                    Left(ModelException.ProductAlreadyInGroup(prod, groupId))
+                } else {
+                    group.add(prod)
+                    Right(Unit)
+                }
+            }
+        }
     }
 
     /**
@@ -154,7 +210,13 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
     override fun setPrice(id: ProductID, price: Double): Either<ModelException, Double> {
-        TODO("Not yet implemented")
+        val prod = model[id] ?: return Left(ModelException.ProductDoesNotExist(id))
+        synchronized(prod) {
+            return if (price > 0) {
+                prod.price = price
+                Right(prod.price)
+            } else return Left(ModelException.ProductCanNotHaveThisPrice(id, price))
+        }
     }
 
     /**
@@ -163,12 +225,13 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      */
     @TestingOnly
     override fun clear(): Either<ModelException, Unit> {
-        TODO("Not yet implemented")
+        model.clear()
+        return Right(Unit)
     }
 
     override fun close() {
         TODO("Here we get free any resources left. This includes database connections")
-        // connection.close() // Like this
+        connection.close() // Like this
     }
 
 }

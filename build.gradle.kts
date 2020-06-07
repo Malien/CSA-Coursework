@@ -30,6 +30,8 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.2.0")
     testRuntime("org.junit.platform:junit-platform-console:1.2.0")
     implementation(kotlin("script-runtime"))
+
+    implementation("org.xerial:sqlite-jdbc:3.31.1")
 }
 
 tasks {

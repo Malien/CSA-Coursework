@@ -2,7 +2,12 @@ package ua.edu.ukma.csa.model
 
 import arrow.core.Either
 import arrow.core.Left
+import arrow.core.Right
 import kotlinx.serialization.Serializable
+import java.util.concurrent.ConcurrentHashMap
+
+val model = ConcurrentHashMap<ProductID, Product>(100)
+val groups = ConcurrentHashMap<GroupID, HashSet<Product>>(100)
 
 @Serializable
 data class Criteria(
@@ -73,19 +78,19 @@ interface ModelSource {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Product] otherwise
      */
     fun addProduct(
+        id: ProductID,
         name: String,
         count: Int = 0,
         price: Double,
         groups: Set<GroupID> = emptySet()
     ): Either<ModelException, Product>
-
     /**
      * Remove some amount of product to the model
      * @param id [ProductID] of product specified
      * @param quantity amount of product to be removed
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or product's current count otherwise
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
-     * if amount of product left after removal is less than 0, [Left] of [ModelException.ProductCanNotHaveThisPrice]
+     * if amount of product left after removal is less than 0, [Left] of [ModelException.ProductCanNotHaveThisCount]
      * will be returned
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
@@ -106,17 +111,17 @@ interface ModelSource {
      * @param name name of the new group
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
-    fun addGroup(name: String): Either<ModelException, Group>
+    fun addGroup(group: GroupID, name: String): Either<ModelException, Group>
 
     /**
      * Assign group by it's [id][GroupID] to the product
      * @param product [ProductID] of a product to assign group to
-     * @param group [GroupID] of a group that is assigned to the product
+     * @param groupId [GroupID] of a group that is assigned to the product
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
      * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
-    fun assignGroup(product: ProductID, group: GroupID): Either<ModelException, Unit>
+    fun assignGroup(product: ProductID, groupId: GroupID): Either<ModelException, Unit>
 
     /**
      * Update the price of product in the model
