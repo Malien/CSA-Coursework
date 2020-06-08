@@ -4,7 +4,6 @@ import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
 import java.io.Closeable
-import java.lang.RuntimeException
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
@@ -24,69 +23,46 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
     I can imagine we will have the following 3 tables in database:
 
     Products:
-        id INT PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        count INT NOT NULL DEFAULT(0),
+        count INTEGER NOT NULL DEFAULT(0),
         price REAL NOT NULL         |or|        price DECIMAL(8,4) NOT NULL
 
     Groups:
-        id INT PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE NOT NULL,
 
     ProductGroups:
-        productID INT REFERENCES Products(id),
-        groupID INT REFERENCES Group(id)
+        productID INTEGER REFERENCES Products(id),
+        groupID INTEGER REFERENCES Group(id)
 
     */
 
-    private var connection: Connection = DriverManager.getConnection("jdbc:sqlite:$dbName")
+    private val connection: Connection = DriverManager.getConnection("jdbc:sqlite:$dbName")
 
     init {
-        // Here we initialize connection and other db stuff
-        try {
-            Class.forName("org.sqlite.JDBC")
-            this.connection = connection
-        } catch (e: ClassNotFoundException) {
-            println("SQLite JDBC driver cannot be found")
-            throw RuntimeException("Cannot find class$e")
-        } catch (e: SQLException) {
-            println("Database connection could not be initialized")
-            throw RuntimeException("Cannot connect$e")
-        }
+        Class.forName("org.sqlite.JDBC")
+        connection.createStatement().execute("""
+            CREATE TABLE IF NOT EXISTS Products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                count INTEGER NOT NULL DEFAULT(0),
+                price REAL NOT NULL
+            )"""
+        )
+        connection.createStatement().execute("""
+            CREATE TABLE IF NOT EXISTS Groups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL
+            )"""
+        )
+        connection.createStatement().execute("""
+           CREATE TABLE IF NOT EXISTS ProductGroups (
+                productID INTEGER REFERENCES Products(id),
+                groupID INTEGER REFERENCES Groups(id)
+           )"""
+        )
     }
-
-    fun createProductsTable() {
-        val products = """
-         Create table if not exists (
-            id INT PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            count INT NOT NULL DEFAULT(0),
-            price REAL NOT NULL )
-        """.trimMargin()
-        connection.createStatement().executeUpdate(products)
-    }
-
-    fun createProductGroupsTable() {
-        val products = """
-         Create table if not exists (
-            id INT PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            count INT NOT NULL DEFAULT(0),
-            price REAL NOT NULL )
-        """.trimMargin()
-        connection.createStatement().executeUpdate(products)
-    }
-
-
-    fun createGroupsTable() {
-        val productGroups = """
-         Create table if not exists (
-            productID INT REFERENCES Products(id),
-            groupID INT REFERENCES Group(id))
-        """.trimMargin()
-        connection.createStatement().executeUpdate(productGroups)
-    }
-
 
     /**
      * Retrieve [product][Product] from model by it's id.
@@ -95,12 +71,13 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
     override fun getProduct(id: ProductID): Either<ModelException, Product> {
-        val statement = connection.createStatement()
-        val resultSet = statement.executeQuery(
-            String.format("select $id from 'products'")
-        )
-        resultSet.row
-        return Right()
+        TODO()
+//        val statement = connection.createStatement()
+//        val resultSet = statement.executeQuery(
+//            String.format("select $id from 'products'")
+//        )
+//        resultSet.row
+//        return Right()
     }
 
     /**
@@ -119,21 +96,22 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         offset: Int?,
         amount: Int?
     ): Either<ModelException, List<Product>> {
-        val statement = connection.createStatement()
-        val resultSet = statement.executeQuery(
-            String.format("""select from 'products' limit %s offset %s , offset, offset * amount""")
-        )
+        TODO()
+//        val statement = connection.createStatement()
+//        val resultSet = statement.executeQuery(
+//            String.format("""select from 'products' limit %s offset %s , offset, offset * amount""")
+//        )
 
-        val products = ArrayList<Product>()
-        while (resultSet.next()) {
-            products.add(
-                Product(
-                    resultSet.getInt("id"), resultSet.getString("name"),
-                    resultSet.getInt("count"), resultSet.getDouble("price")
-                )
-            )
-        }
-        return Right(products)
+//        val products = ArrayList<Product>()
+//        while (resultSet.next()) {
+//            products.add(
+//                Product(
+//                    resultSet.getInt("id"), resultSet.getString("name"),
+//                    resultSet.getInt("count"), resultSet.getDouble("price")
+//                )
+//            )
+//        }
+//        return Right(products)
     }
 
     /**
@@ -143,6 +121,7 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
     override fun removeProduct(id: ProductID): Either<ModelException, Unit> {
+        TODO()
     }
 
     /**
@@ -159,17 +138,18 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         price: Double,
         groups: Set<GroupID>
     ): Either<ModelException, Product> {
-        val insertStatement =
-            connection.prepareStatement("""inset into products(name, count, price, groups) values(?,?,?,?)""")
-        connection.autoCommit
-        insertStatement.setString(1, name)
-        insertStatement.setInt(2, count)
-        insertStatement.setDouble(3, price)
-        insertStatement.setString(4, groups.toString())
-        insertStatement.executeQuery()
-        val result = insertStatement.generatedKeys
-        connection.commit()
-        return Right(result)
+        TODO()
+//        val insertStatement =
+//            connection.prepareStatement("""inset into products(name, count, price, groups) values(?,?,?,?)""")
+//        connection.autoCommit
+//        insertStatement.setString(1, name)
+//        insertStatement.setInt(2, count)
+//        insertStatement.setDouble(3, price)
+//        insertStatement.setString(4, groups.toString())
+//        insertStatement.executeQuery()
+//        val result = insertStatement.generatedKeys
+//        connection.commit()
+//        return Right(result)
     }
 
     /**
@@ -183,10 +163,11 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
     override fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-        val statement = connection.createStatement()
-        val resultSet = statement.executeQuery(
-            String.format("update count with $quantity from 'products' with $id ")
-        )
+        TODO()
+//        val statement = connection.createStatement()
+//        val resultSet = statement.executeQuery(
+//            String.format("update count with $quantity from 'products' with $id ")
+//        )
 
     }
 
@@ -199,10 +180,11 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
     override fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-        val statement = connection.createStatement()
-        val resultSet = statement.executeQuery(
-            String.format("update count with $quantity from 'products' with $id ")
-        )
+        TODO()
+//        val statement = connection.createStatement()
+//        val resultSet = statement.executeQuery(
+//            String.format("update count with $quantity from 'products' with $id ")
+//        )
     }
 
     /**
@@ -210,16 +192,17 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * @param name name of the new group
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
-    override fun addGroup(group: GroupID, name: String): Either<ModelException, Group> {
-        val insertStatement =
-            connection.prepareStatement("""inset into groups(id, name) values(?,?)""")
-        connection.autoCommit
-        insertStatement.setString(1, group.toString())
-        insertStatement.setString(2, name)
-        insertStatement.executeQuery()
-        val result = insertStatement.generatedKeys
-        connection.commit()
-        return Right(result)
+    override fun addGroup(name: String): Either<ModelException, Group> {
+        TODO()
+//        val insertStatement =
+//            connection.prepareStatement("""inset into groups(id, name) values(?,?)""")
+//        connection.autoCommit
+//        insertStatement.setString(1, group.toString())
+//        insertStatement.setString(2, name)
+//        insertStatement.executeQuery()
+//        val result = insertStatement.generatedKeys
+//        connection.commit()
+//        return Right(result)
     }
 
     /**
@@ -231,6 +214,7 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
     override fun assignGroup(product: ProductID, groupId: GroupID): Either<ModelException, Unit> {
+        TODO()
 
     }
 
@@ -243,10 +227,11 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
     override fun setPrice(id: ProductID, price: Double): Either<ModelException, Double> {
-        val statement = connection.createStatement()
-        val resultSet = statement.executeQuery(
-            String.format("update price with $price from 'products' with $id ")
-        )
+        TODO()
+//        val statement = connection.createStatement()
+//        val resultSet = statement.executeQuery(
+//            String.format("update price with $price from 'products' with $id ")
+//        )
 
     }
 

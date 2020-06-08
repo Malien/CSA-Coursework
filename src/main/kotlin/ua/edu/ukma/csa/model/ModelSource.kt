@@ -2,9 +2,7 @@ package ua.edu.ukma.csa.model
 
 import arrow.core.Either
 import arrow.core.Left
-import arrow.core.Right
 import kotlinx.serialization.Serializable
-import java.util.concurrent.ConcurrentHashMap
 
 @Serializable
 data class Criteria(
@@ -75,7 +73,6 @@ interface ModelSource {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Product] otherwise
      */
     fun addProduct(
-        id: ProductID,
         name: String,
         count: Int = 0,
         price: Double,
@@ -108,7 +105,7 @@ interface ModelSource {
      * @param name name of the new group
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
-    fun addGroup(group: GroupID, name: String): Either<ModelException, Group>
+    fun addGroup(name: String): Either<ModelException, Group>
 
     /**
      * Assign group by it's [id][GroupID] to the product

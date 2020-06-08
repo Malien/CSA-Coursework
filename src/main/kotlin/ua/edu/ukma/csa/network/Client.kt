@@ -37,8 +37,10 @@ interface Client : Closeable {
         retries: UInt = 0u
     ): Either<FetchException, Res>
 
-    suspend fun getQuantity(id: ProductID, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.GetQuantity, Response.Quantity>(Request.GetQuantity(id), resendBehind, retries)
+    suspend fun getProduct(id: ProductID, resendBehind: Boolean = true, retries: UInt = 0u) =
+        fetch<Request.GetProduct, Response.Quantity>(Request.GetProduct(id), resendBehind, retries)
+
+    // get product list
 
     suspend fun addGroup(name: String, resendBehind: Boolean = true, retries: UInt = 0u) =
         fetch<Request.AddGroup, Response.Group>(Request.AddGroup(name), resendBehind, retries)
