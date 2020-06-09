@@ -4,14 +4,6 @@ import arrow.core.Either
 import arrow.core.Left
 import kotlinx.serialization.Serializable
 
-@Serializable
-data class Criteria(
-    val name: String? = null,
-    val fromPrice: Double? = null,
-    val toPrice: Double? = null,
-    val inGroups: Set<String> = emptySet()
-)
-
 enum class Order { ASCENDING, DESCENDING }
 
 enum class ProductProperty { ID, NAME, PRICE, COUNT }
@@ -24,11 +16,21 @@ enum class ProductProperty { ID, NAME, PRICE, COUNT }
 @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
 annotation class TestingOnly
 
+typealias Orderings = List<Ordering>
+
 @Serializable
-data class Ordering(
+data class Ordering internal constructor(
     val property: ProductProperty,
     val order: Order
-)
+) {
+    companion object {
+        fun by(property: ProductProperty, order: Order = Order.ASCENDING): Orderings =
+            listOf(Ordering(property, order))
+    }
+}
+
+fun Orderings.andThen(property: ProductProperty, order: Order = Order.ASCENDING) =
+    this + Ordering(property, order)
 
 interface ModelSource {
     /**
@@ -50,8 +52,8 @@ interface ModelSource {
      * @return [Either] a [ModelException] in case operation cannot be fulfilled or a list of [Product]s otherwise
      */
     fun getProducts(
-        criteria: Criteria,
-        ordering: Ordering? = null,
+        criteria: Criteria = Criteria(),
+        ordering: List<Ordering> = emptyList(),
         offset: Int? = null,
         amount: Int? = null
     ): Either<ModelException, List<Product>>
@@ -78,6 +80,7 @@ interface ModelSource {
         price: Double,
         groups: Set<GroupID> = emptySet()
     ): Either<ModelException, Product>
+
     /**
      * Remove some amount of product to the model
      * @param id [ProductID] of product specified

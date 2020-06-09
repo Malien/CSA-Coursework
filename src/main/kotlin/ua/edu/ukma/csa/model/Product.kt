@@ -22,7 +22,7 @@ data class ProductID(val id: Int) {
 }
 
 @Serializable
-data class Product(
+data class Product internal constructor(
     val id: ProductID = ProductID.UNSET,
     val name: String,
     val count: Int = 0,

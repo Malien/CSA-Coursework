@@ -24,7 +24,7 @@ sealed class Request(@Transient val messageType: MessageType = MessageType.ERR) 
     @Serializable
     data class GetProductList(
         val criteria: Criteria,
-        val ordering: Ordering? = null,
+        val ordering: List<Ordering> = emptyList(),
         val offset: Int? = null,
         val amount: Int? = null
     ) : Request(MessageType.GET_PRODUCT_LIST)

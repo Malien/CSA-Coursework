@@ -17,6 +17,8 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
     class GroupAlreadyExists(group: GroupID) :
         ModelException("Product with group $group already exists")
 
+    class InvalidRequest(message: String) : ModelException(message)
+
     data class GroupsNotPresent(val missingGroups: Set<GroupID>) :
         ModelException("Not all of the groups fom the set are present")
 
