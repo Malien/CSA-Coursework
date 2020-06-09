@@ -4,13 +4,12 @@ import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
 import arrow.core.flatMap
+import com.zaxxer.hikari.HikariDataSource
 import ua.edu.ukma.csa.kotlinx.java.sql.execute
 import ua.edu.ukma.csa.kotlinx.java.sql.executeUpdate
 import ua.edu.ukma.csa.kotlinx.java.sql.iterator
 import ua.edu.ukma.csa.kotlinx.java.sql.transaction
 import java.io.Closeable
-import java.sql.Connection
-import java.sql.DriverManager
 import java.sql.SQLException
 import java.sql.Statement
 
@@ -24,7 +23,7 @@ import java.sql.Statement
  * @throws SQLException if database connection could not be initialized
  * @throws ClassNotFoundException if SQLite JDBC driver cannot be found
  */
-class SQLiteModel(dbName: String) : ModelSource, Closeable {
+class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
     /*
     I can imagine we will have the following 3 tables in database:
 
@@ -44,39 +43,45 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
 
     */
 
-    private val connection: Connection = DriverManager.getConnection("jdbc:sqlite:$dbName")
+    private val source: HikariDataSource
+
+//    private val connection: Connection = DriverManager.getConnection("jdbc:sqlite:$dbName")
 
     init {
         Class.forName("org.sqlite.JDBC")
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS product (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                count INTEGER NOT NULL DEFAULT(0),
-                price REAL NOT NULL CHECK (price >= 0),
-                CONSTRAINT count_positive CHECK (count >= 0),
-                CONSTRAINT price_positive CHECK (price >= 0)
+        source = HikariDataSource()
+        source.jdbcUrl = "jdbc:sqlite:$dbName"
+        source.connection.use { connection ->
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS product (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    count INTEGER NOT NULL DEFAULT(0),
+                    price REAL NOT NULL CHECK (price >= 0),
+                    CONSTRAINT count_positive CHECK (count >= 0),
+                    CONSTRAINT price_positive CHECK (price >= 0)
+                )
+                """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS product_group (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL
+                )
             """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS product_group (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE NOT NULL
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS product_product_group (
+                    product_id INTEGER REFERENCES products(id),
+                    group_id INTEGER REFERENCES groups(id),
+                    CONSTRAINT pkey PRIMARY KEY (product_id, group_id)
+                ) WITHOUT ROWID
             """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS product_product_group (
-                product_id INTEGER REFERENCES products(id),
-                group_id INTEGER REFERENCES groups(id),
-                CONSTRAINT pkey PRIMARY KEY (product_id, group_id)
-            ) WITHOUT ROWID
-            """
-        )
+            )
+        }
     }
 
     /**
@@ -139,11 +144,6 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         TODO()
     }
 
-    private val productInsertStatement = connection.prepareStatement(
-        "INSERT INTO product (name, count, price) VALUES (?,?,?)",
-        Statement.RETURN_GENERATED_KEYS
-    )
-
     /**
      * Add product to the model
      * @param name name of the new product
@@ -161,48 +161,54 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         count < 0 -> Left(ModelException.ProductCanNotHaveThisCount(count))
         price < 0 -> Left(ModelException.ProductCanNotHaveThisPrice(price))
         // Wrap everything in a transaction
-        else -> connection.transaction {
-            // Check if all of the groups to be added to product exist
-            if (groups.isNotEmpty()) {
-                createStatement().use { statement ->
-                    val result = statement.executeQuery(
-                        """
+        else -> source.connection.use { connection ->
+            connection.transaction {
+                // Check if all of the groups to be added to product exist
+                if (groups.isNotEmpty()) {
+                    createStatement().use { statement ->
+                        val result = statement.executeQuery(
+                            """
                         SELECT id
                         FROM product_group
                         WHERE id IN ( ${groups.map { it.id }.joinToString()} )
                         """
-                    )
-                    val retrievedIDs = result.iterator().asSequence()
-                        .map { it.getInt("id") }
-                        .map { GroupID(it) }
-                    val missingGroups = groups - retrievedIDs
-                    if (missingGroups.isNotEmpty()) return Left(ModelException.GroupsNotPresent(missingGroups))
+                        )
+                        val retrievedIDs = result.iterator().asSequence()
+                            .map { it.getInt("id") }
+                            .map { GroupID(it) }
+                        val missingGroups = groups - retrievedIDs
+                        if (missingGroups.isNotEmpty()) return Left(ModelException.GroupsNotPresent(missingGroups))
+                    }
                 }
-            }
 
-            productInsertStatement.setString(1, name)
-            productInsertStatement.setInt(2, count)
-            productInsertStatement.setDouble(3, price)
-            productInsertStatement.executeUpdate()
-            val id = productInsertStatement.generatedKeys.use { keys ->
-                keys.next()
-                keys.getInt(1)
-            }
+                val productInsertStatement = connection.prepareStatement(
+                    "INSERT INTO product (name, count, price) VALUES (?,?,?)",
+                    Statement.RETURN_GENERATED_KEYS
+                )
+                productInsertStatement.setString(1, name)
+                productInsertStatement.setInt(2, count)
+                productInsertStatement.setDouble(3, price)
+                productInsertStatement.executeUpdate()
+                val id = productInsertStatement.generatedKeys.use { keys ->
+                    keys.next()
+                    keys.getInt(1)
+                }
 
-            if (groups.isNotEmpty()) {
-                createStatement().use { statement ->
-                    statement.executeUpdate(
-                        """
+                if (groups.isNotEmpty()) {
+                    createStatement().use { statement ->
+                        statement.executeUpdate(
+                            """
                         INSERT INTO product_product_group (productID, groupID) 
                         VALUES ${groups.joinToString { "($id, ${it.id})" }}
                         """
-                    )
+                        )
+                    }
                 }
-            }
-            Right(Product(ProductID(id), name, count, price, groups))
+                Right(Product(ProductID(id), name, count, price, groups))
+            }                                       // Either<SQLException,       Either<ModelException, Product>>
+                .mapLeft { ModelException.SQL(it) } // Either<ModelException.SQL, Either<ModelException, Product>>
+                .flatMap { it }                     // Either<ModelException,     Product>
         }
-            .mapLeft { ModelException.SQL(it) }
-            .flatMap { it }
     }
 
     /**
@@ -293,15 +299,14 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      * If model prohibits clears [ModelException] is returned or [Unit] otherwise
      */
     @TestingOnly
-    override fun clear(): Either<ModelException, Unit> {
+    override fun clear(): Either<ModelException, Unit> = source.connection.use { connection ->
         connection.executeUpdate("DELETE FROM product")
         connection.executeUpdate("DELETE FROM product_groups")
         return Right(Unit)
     }
 
     override fun close() {
-        productInsertStatement.close()
-        connection.close() // Like this
+        source.close()
     }
 }
 
