@@ -226,8 +226,9 @@ fun UDPServer.serve(model: ModelSource) = serve { (data, address, packetCount) -
  * @param cipher cipher which will be used to decrypt message. Takes ownership of cipher
  * @return newly created thread which handles the processing
  */
-fun UDPServer.serve(model: ModelSource, key: Key, cipher: Cipher) = serve { (data, address, packetCount) ->
+fun UDPServer.serve(model: ModelSource, key: Key, cipherFactory: () -> Cipher) = serve { (data, address, packetCount) ->
     thread(name = "UDP-Processing-Thread") {
+        val cipher = cipherFactory()
         socket.send(
             when (val request = Packet.decode<Message.Encrypted>(data)) {
                 is Either.Right -> {

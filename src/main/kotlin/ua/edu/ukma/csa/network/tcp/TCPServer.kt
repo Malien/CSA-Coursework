@@ -54,6 +54,6 @@ fun TCPServer.serve(model: ModelSource) = serve { inputStream, outputStream ->
     thread { model.handleStream(inputStream, outputStream) }
 }
 
-fun TCPServer.serve(model: ModelSource, key: Key, cipher: Cipher) = serve { inputStream, outputStream ->
-    thread { model.handleStream(inputStream, outputStream, key, cipher) }
+fun TCPServer.serve(model: ModelSource, key: Key, cipherFactory: () -> Cipher) = serve { inputStream, outputStream ->
+    thread { model.handleStream(inputStream, outputStream, key, cipherFactory()) }
 }
