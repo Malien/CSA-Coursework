@@ -3,10 +3,16 @@ package ua.edu.ukma.csa.model
 import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
+import arrow.core.flatMap
+import ua.edu.ukma.csa.kotlinx.java.sql.execute
+import ua.edu.ukma.csa.kotlinx.java.sql.executeUpdate
+import ua.edu.ukma.csa.kotlinx.java.sql.iterator
+import ua.edu.ukma.csa.kotlinx.java.sql.transaction
 import java.io.Closeable
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
+import java.sql.Statement
 
 /**
  * Represents a SQLite data-source.
@@ -42,25 +48,34 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
 
     init {
         Class.forName("org.sqlite.JDBC")
-        connection.createStatement().execute("""
-            CREATE TABLE IF NOT EXISTS Products (
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS product (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 count INTEGER NOT NULL DEFAULT(0),
-                price REAL NOT NULL
-            )"""
+                price REAL NOT NULL CHECK (price >= 0),
+                CONSTRAINT count_positive CHECK (count >= 0),
+                CONSTRAINT price_positive CHECK (price >= 0)
+            )
+            """
         )
-        connection.createStatement().execute("""
-            CREATE TABLE IF NOT EXISTS Groups (
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS product_group (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL
-            )"""
+            )
+            """
         )
-        connection.createStatement().execute("""
-           CREATE TABLE IF NOT EXISTS ProductGroups (
-                productID INTEGER REFERENCES Products(id),
-                groupID INTEGER REFERENCES Groups(id)
-           )"""
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS product_product_group (
+                product_id INTEGER REFERENCES products(id),
+                group_id INTEGER REFERENCES groups(id),
+                CONSTRAINT pkey PRIMARY KEY (product_id, group_id)
+            ) WITHOUT ROWID
+            """
         )
     }
 
@@ -124,6 +139,11 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         TODO()
     }
 
+    private val productInsertStatement = connection.prepareStatement(
+        "INSERT INTO product (name, count, price) VALUES (?,?,?)",
+        Statement.RETURN_GENERATED_KEYS
+    )
+
     /**
      * Add product to the model
      * @param name name of the new product
@@ -137,19 +157,52 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
         count: Int,
         price: Double,
         groups: Set<GroupID>
-    ): Either<ModelException, Product> {
-        TODO()
-//        val insertStatement =
-//            connection.prepareStatement("""inset into products(name, count, price, groups) values(?,?,?,?)""")
-//        connection.autoCommit
-//        insertStatement.setString(1, name)
-//        insertStatement.setInt(2, count)
-//        insertStatement.setDouble(3, price)
-//        insertStatement.setString(4, groups.toString())
-//        insertStatement.executeQuery()
-//        val result = insertStatement.generatedKeys
-//        connection.commit()
-//        return Right(result)
+    ): Either<ModelException, Product> = when {
+        count < 0 -> Left(ModelException.ProductCanNotHaveThisCount(count))
+        price < 0 -> Left(ModelException.ProductCanNotHaveThisPrice(price))
+        // Wrap everything in a transaction
+        else -> connection.transaction {
+            // Check if all of the groups to be added to product exist
+            if (groups.isNotEmpty()) {
+                createStatement().use { statement ->
+                    val result = statement.executeQuery(
+                        """
+                        SELECT id
+                        FROM product_group
+                        WHERE id IN ( ${groups.map { it.id }.joinToString()} )
+                        """
+                    )
+                    val retrievedIDs = result.iterator().asSequence()
+                        .map { it.getInt("id") }
+                        .map { GroupID(it) }
+                    val missingGroups = groups - retrievedIDs
+                    if (missingGroups.isNotEmpty()) return Left(ModelException.GroupsNotPresent(missingGroups))
+                }
+            }
+
+            productInsertStatement.setString(1, name)
+            productInsertStatement.setInt(2, count)
+            productInsertStatement.setDouble(3, price)
+            productInsertStatement.executeUpdate()
+            val id = productInsertStatement.generatedKeys.use { keys ->
+                keys.next()
+                keys.getInt(1)
+            }
+
+            if (groups.isNotEmpty()) {
+                createStatement().use { statement ->
+                    statement.executeUpdate(
+                        """
+                        INSERT INTO product_product_group (productID, groupID) 
+                        VALUES ${groups.joinToString { "($id, ${it.id})" }}
+                        """
+                    )
+                }
+            }
+            Right(Product(ProductID(id), name, count, price, groups))
+        }
+            .mapLeft { ModelException.SQL(it) }
+            .flatMap { it }
     }
 
     /**
@@ -241,14 +294,32 @@ class SQLiteModel(dbName: String) : ModelSource, Closeable {
      */
     @TestingOnly
     override fun clear(): Either<ModelException, Unit> {
-        val statement = connection.createStatement()
-        statement.execute("delete * from 'ptoducts'")
+        connection.executeUpdate("DELETE FROM product")
+        connection.executeUpdate("DELETE FROM product_groups")
         return Right(Unit)
     }
 
     override fun close() {
+        productInsertStatement.close()
         connection.close() // Like this
     }
-
 }
 
+fun main() {
+    val model = SQLiteModel("test.db")
+
+    val product = model.addProduct(name = "Pr1", price = 1.2)
+    println(product)
+
+    val invalidProducts = listOf(
+        model.addProduct(name = "Pr2", count = -3, price = 1.2),
+        model.addProduct(name = "Pr2", count = 10, price = -1.2),
+        model.addProduct(
+            name = "Pr2",
+            price = 1.2,
+            groups = listOf(1, 2).map { GroupID(it) }.toSet()
+        )
+    )
+
+    println(invalidProducts)
+}

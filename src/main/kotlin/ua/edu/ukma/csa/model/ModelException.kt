@@ -1,13 +1,15 @@
 package ua.edu.ukma.csa.model
 
+import java.sql.SQLException
+
 sealed class ModelException(msg: String) : RuntimeException(msg) {
     class ProductAlreadyExists(id: ProductID) : ModelException("Product with id $id already exists")
     class ProductDoesNotExist(id: ProductID) : ModelException("Product with id $id does not exist")
-    class ProductCanNotHaveThisPrice(id: ProductID, price: Double) :
-        ModelException("Product with id $id can`t have this price $price")
+    class ProductCanNotHaveThisPrice(price: Double) :
+        ModelException("Product can`t have price of $price")
 
-    class ProductCanNotHaveThisCount(id: ProductID, count: Int) :
-        ModelException("Product with id $id can`t have this count $count")
+    class ProductCanNotHaveThisCount(count: Int) :
+        ModelException("Product can`t have count of $count")
 
     class ProductAlreadyInGroup(product: Product, group: GroupID) :
         ModelException("Product $product is already in group $group")
@@ -15,8 +17,14 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
     class GroupAlreadyExists(group: GroupID) :
         ModelException("Product with group $group already exists")
 
+    data class GroupsNotPresent(val missingGroups: Set<GroupID>) :
+        ModelException("Not all of the groups fom the set are present")
+
     class GroupDoesNotExist(group: GroupID) :
         ModelException("Product with group $group doesn't exist")
+
+    data class SQL(val error: SQLException) :
+        ModelException("SQL exception raised: $error")
 
     // TODO: Remove this one
     class NotImplemented() :
