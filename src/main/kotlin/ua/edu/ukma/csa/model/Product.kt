@@ -6,6 +6,8 @@ import java.util.concurrent.atomic.AtomicInteger
 /** GOD I WISH THIS COULD BE AN INLINE CLASS */
 @Serializable
 data class ProductID(val id: Int) {
+    override fun toString() = "ProductID($id)"
+
     @Serializer(forClass = ProductID::class)
     companion object : KSerializer<ProductID> {
         val UNSET = ProductID(0)
