@@ -90,14 +90,21 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Product] otherwise
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
-    override fun getProduct(id: ProductID): Either<ModelException, Product> {
-        TODO()
-//        val statement = connection.createStatement()
-//        val resultSet = statement.executeQuery(
-//            String.format("select $id from 'products'")
-//        )
-//        resultSet.row
-//        return Right()
+    override fun getProduct(id: ProductID): Either<ModelException, Product> = source.connection.use { connection ->
+        connection.prepareStatement("SELECT id, name, count, price FROM product WHERE id = ?").use { statement ->
+            statement.setInt(1, id.id)
+            val result = statement.executeQuery()
+            if (result.next()) {
+                Right(
+                    Product(
+                        id = ProductID(result.getInt("id")),
+                        name = result.getString("name"),
+                        count = result.getInt("count"),
+                        price = result.getDouble("price")
+                    )
+                )
+            } else Left(ModelException.ProductDoesNotExist(id))
+        }
     }
 
     /**
