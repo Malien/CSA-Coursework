@@ -192,12 +192,13 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      */
     override fun removeProduct(id: ProductID): Either<ModelException, Unit> {
         if (id.id == 0) return Left(ModelException.ProductDoesNotExist(id))
+        val connection = source.connection
         val deleteProduct =
-            source.connection.prepareStatement("""DELETE FROM product WHERE id = ? """)
+            connection.prepareStatement("""DELETE FROM product WHERE id = ? """)
         deleteProduct.setInt(1, id.id)
         deleteProduct.executeUpdate()
-        source.connection.close()
         deleteProduct.close()
+        connection.close()
         return Right(Unit)
     }
 
@@ -281,11 +282,13 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
     override fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Unit> {
         return if (quantity < 0) {
             Left(ModelException.ProductCanNotHaveThisCount(quantity))
-            } else {
-            source.connection.autoCommit = false
+        } else {
+            val connection = source.connection
+            connection.autoCommit = false
             val updateCount =
-                source.connection.prepareStatement("""UPDATE product SET count = count - $quantity WHERE id = ${id.id}""")
+                connection.prepareStatement("""UPDATE product SET count = count - $quantity WHERE id = ${id.id}""")
             updateCount.executeUpdate()
+            connection.close()
             Right(Unit)
         }
     }
@@ -302,10 +305,12 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         return if (quantity < 0) {
             Left(ModelException.ProductCanNotHaveThisCount(quantity))
         } else {
-            source.connection.autoCommit = false
+            val connection = source.connection
+            connection.autoCommit = false
             val updateCount =
-                source.connection.prepareStatement("""UPDATE product SET count = count + $quantity WHERE id = ${id.id}""")
+                connection.prepareStatement("""UPDATE product SET count = count + $quantity WHERE id = ${id.id}""")
             updateCount.executeUpdate()
+            connection.close()
             Right(Unit)
         }
     }
@@ -316,7 +321,8 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
     override fun addGroup(name: String): Either<ModelException, Group> {
-        val groupInsertStatement = source.connection.prepareStatement(
+        val connection = source.connection
+        val groupInsertStatement = connection.prepareStatement(
             "INSERT INTO product_group (name) VALUES (?)",
             Statement.RETURN_GENERATED_KEYS
         )
@@ -328,8 +334,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
 
         val result = groupInsertStatement.executeQuery()
 
-        return if (result.next()) {
-            source.connection.close()
+        val res =  if (result.next()) {
             Right(
                 Group(
                     id = GroupID(result.getInt("id")),
@@ -337,6 +342,10 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
                 )
             )
         } else Left(ModelException.GroupAlreadyExists(GroupID(id)))
+
+        connection.close()
+
+        return res
     }
 
     /**
@@ -364,10 +373,12 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         return if (price < 0) {
             Left(ModelException.ProductCanNotHaveThisPrice(price))
         } else {
-            source.connection.autoCommit = false
+            val connection = source.connection
+            connection.autoCommit = false
             val setPrice =
-                source.connection.prepareStatement("""UPDATE product SET price=$price WHERE id = ${id.id}""")
+                connection.prepareStatement("""UPDATE product SET price=$price WHERE id = ${id.id}""")
             setPrice.executeUpdate()
+            connection.close()
             Right(Unit)
         }
     }
