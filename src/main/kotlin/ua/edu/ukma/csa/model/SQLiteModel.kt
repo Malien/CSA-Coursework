@@ -390,7 +390,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
     @TestingOnly
     override fun clear(): Either<ModelException, Unit> = source.connection.use { connection ->
         connection.executeUpdate("DELETE FROM product")
-        connection.executeUpdate("DELETE FROM product_groups")
+        connection.executeUpdate("DELETE FROM product_group")
         return Right(Unit)
     }
 
