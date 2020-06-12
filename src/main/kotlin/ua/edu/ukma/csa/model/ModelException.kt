@@ -23,7 +23,7 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
         ModelException("Not all of the groups fom the set are present")
 
     class GroupDoesNotExist(group: GroupID) :
-        ModelException("Product with group $group doesn't exist")
+        ModelException("Group with $group doesn't exist")
 
     data class SQL(val error: SQLException) : ModelException("SQL exception raised: $error") {
         override fun toString() = "ModelException.SQL($error)"

@@ -281,11 +281,16 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         return if (quantity < 0) {
             Left(ModelException.ProductCanNotHaveThisCount(quantity))
         } else {
-            source.connection.autoCommit = false
-            val updateCount =
-                source.connection.prepareStatement("""UPDATE product SET count = count - $quantity WHERE id = ${id.id}""")
-            updateCount.executeUpdate()
-            Right(Unit)
+            source.connection.use { connection ->
+                try{
+                    connection.executeUpdate(
+                        "UPDATE product SET count = count - $quantity WHERE id = ${id.id}"
+                    )
+                    Right(Unit)
+                } catch (e: SQLException) {
+                    Left(ModelException.SQL(e))
+                }
+            }
         }
     }
 
@@ -301,10 +306,16 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         return if (quantity < 0) {
             Left(ModelException.ProductCanNotHaveThisCount(quantity))
         } else {
-            source.connection.autoCommit = false
-            val updateCount =
-                source.connection.prepareStatement("""UPDATE product SET count = count + $quantity WHERE id = ${id.id}""")
-            updateCount.executeUpdate()
+            source.connection.use { connection ->
+                try{
+                    connection.executeUpdate(
+                        "UPDATE product SET count = count + $quantity WHERE id = ${id.id}"
+                    )
+                    Right(Unit)
+                } catch (e: SQLException) {
+                    Left(ModelException.SQL(e))
+                }
+            }
             Right(Unit)
         }
     }
@@ -314,71 +325,70 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * @param name name of the new group
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
-    override fun addGroup(name: String): Either<ModelException, Group> {
+    override fun addGroup(name: String): Either<ModelException, Group> =
+        source.connection.use { connection ->
+            connection.transaction {
+                connection.prepareStatement(
+                    "SELECT id FROM product_group WHERE name = ? LIMIT 1"
+                ).use { statement ->
+                    statement.setString(1, name)
+                    val result = statement.executeQuery()
+                    if (result.next()) {
+                        val id = result.getInt("id")
+                        Left(ModelException.GroupAlreadyExists(GroupID(id)))
+                    } else Right(Unit)
+                }.map {
+                    val id = connection.prepareStatement(
+                        "INSERT INTO product_group (name) VALUES (?)",
+                        Statement.RETURN_GENERATED_KEYS
+                    ).use { statement ->
+                        statement.setString(1, name)
+                        statement.executeUpdate()
+                        statement.generatedKeys.use { keys ->
+                            keys.next()
+                            keys.getInt(1)
+                        }
+                    }
 
-        val checkIfExistGroup =
-            source.connection.prepareStatement("SELECT id, name FROM product_group WHERE name = ?")
-        checkIfExistGroup.executeUpdate()
-        source.connection.close()
-
-        val groupInsertStatement = source.connection.prepareStatement(
-            "INSERT INTO product_group (name) VALUES (?)",
-            Statement.RETURN_GENERATED_KEYS
-        )
-        source.connection.close()
-
-        groupInsertStatement.executeUpdate()
-        groupInsertStatement.setString(1, name)
-        val id = groupInsertStatement.generatedKeys.use { keys ->
-            keys.next()
-            keys.getInt(1)
+                    Group(GroupID(id), name)
+                }
+            }.mapLeft { ModelException.SQL(it) }.flatMap { it }
         }
-        return if (checkIfExistGroup.execute()) {
-            Left(ModelException.GroupAlreadyExists(GroupID(id)))
-        } else {
-            Right(Group(GroupID(id), name))
-        }
-    }
 
     /**
      * Assign group by it's [id][GroupID] to the product
-     * @param product [ProductID] of a product to assign group to
-     * @param groupId [GroupID] of a group that is assigned to the product
+     * @param productID [ProductID] of a product to assign group to
+     * @param groupID [GroupID] of a group that is assigned to the product
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
      * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
-    override fun assignGroup(product: ProductID, groupId: GroupID): Either<ModelException, Unit> {
-
-        val checkIfExistGroup =
-            source.connection.prepareStatement("SELECT id, name FROM product_group WHERE id = ?")
-        checkIfExistGroup.executeUpdate()
-        source.connection.close()
-
-        val checkIfExistProduct =
-            source.connection.prepareStatement("SELECT id, name FROM product WHERE id = ?")
-        checkIfExistProduct.executeUpdate()
-        source.connection.close()
-
+    override fun assignGroup(productID: ProductID, groupID: GroupID): Either<ModelException, Unit> =
         source.connection.use { connection ->
-            connection.prepareStatement(
-                """
-                        INSERT INTO product_product_group (productID, groupID) 
-                        VALUES (?,?)
-                        """
-            ).executeUpdate()
+            connection.transaction {
+                connection.prepareStatement("SELECT id FROM product_group WHERE id = ?")
+                    .use { statement ->
+                        statement.setInt(1, groupID.id)
+                        val result = statement.executeQuery()
+                        if (result.next()) Right(Unit)
+                        else Left(ModelException.GroupDoesNotExist(groupID))
+                    }.flatMap {
+                        connection.prepareStatement("SELECT id FROM product WHERE id = ?").use { statement ->
+                            statement.setInt(1, productID.id)
+                            val result = statement.executeQuery()
+                            if (result.next()) Right(Unit)
+                            else Left(ModelException.ProductDoesNotExist(productID))
+                        }
+                    }.map {
+                        connection.prepareStatement(
+                            "INSERT INTO product_product_group (product_id, group_id) VALUES (?,?)"
+                        ).use { statement ->
+                            statement.setInt(1, productID.id)
+                            statement.setInt(2, groupID.id)
+                        }
+                    }
+            }.mapLeft { ModelException.SQL(it) }.flatMap { it }
         }
-        source.connection.close()
-        return when {
-            checkIfExistGroup.execute() ->
-                Left(ModelException.GroupAlreadyExists(groupId))
-
-            checkIfExistProduct.execute() ->
-                Left(ModelException.ProductAlreadyExists(product))
-
-            else -> Right(Unit)
-        }
-    }
 
     /**
      * Update the price of product in the model
@@ -468,7 +478,7 @@ fun main() {
     productRequests.forEach(::println)
 
     val product = model.addProduct(name = "Pr1", count = 10, price = 1.2)
-    println(product)
+    println("product: $product")
 
     val decreaseProductCount = product.flatMap { model.deleteQuantityOfProduct(it.id, 5) }
     println(decreaseProductCount)
@@ -494,10 +504,11 @@ fun main() {
     val deleteProduct = product.flatMap { model.removeProduct(it.id) }
     println(deleteProduct)
 
-    val addGroupOfProduct = product.flatMap { model.addGroup("Gr1") }
-    println(addGroupOfProduct)
-    println(product)
+    val newGroup = model.addGroup("Gr1")
+    println(newGroup)
 
-//    val assignGroupToProduct = product.flatMap { model.assignGroup(it.id, GroupID(it)) }
-//    println(assignGroupToProduct)
+    val assignGroupToProduct = prod2.flatMap { pr ->
+        newGroup.flatMap { gr -> model.assignGroup(pr.id, gr.id) }
+    }
+    println(assignGroupToProduct)
 }

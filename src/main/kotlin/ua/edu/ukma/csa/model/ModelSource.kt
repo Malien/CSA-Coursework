@@ -112,13 +112,13 @@ interface ModelSource {
 
     /**
      * Assign group by it's [id][GroupID] to the product
-     * @param product [ProductID] of a product to assign group to
-     * @param groupId [GroupID] of a group that is assigned to the product
+     * @param productID [ProductID] of a product to assign group to
+     * @param groupID [GroupID] of a group that is assigned to the product
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
      * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
-    fun assignGroup(product: ProductID, groupId: GroupID): Either<ModelException, Unit>
+    fun assignGroup(productID: ProductID, groupID: GroupID): Either<ModelException, Unit>
 
     /**
      * Update the price of product in the model
