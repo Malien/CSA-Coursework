@@ -184,125 +184,125 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         }
     }
 
-/**
- * Remove product from model
- * @param id [ProductID] of product specified
- * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
- * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
- */
-override fun removeProduct(id: ProductID): Either<ModelException, Unit> {
-    TODO()
-}
+    /**
+     * Remove product from model
+     * @param id [ProductID] of product specified
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
+     */
+    override fun removeProduct(id: ProductID): Either<ModelException, Unit> {
+        TODO()
+    }
 
-/**
- * Add product to the model
- * @param name name of the new product
- * @param count amount of product present in the model
- * @param price price of the product
- * @param groups set of [GroupID]s to which product belongs
- * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Product] otherwise
- */
-override fun addProduct(
-    name: String,
-    count: Int,
-    price: Double,
-    groups: Set<GroupID>
-): Either<ModelException, Product> = when {
-    count < 0 -> Left(ModelException.ProductCanNotHaveThisCount(count))
-    price < 0 -> Left(ModelException.ProductCanNotHaveThisPrice(price))
-    // Wrap everything in a transaction
-    else -> source.connection.use { connection ->
-        connection.transaction {
-            // Check if all of the groups to be added to product exist
-            if (groups.isNotEmpty()) {
-                createStatement().use { statement ->
-                    val result = statement.executeQuery(
-                        """
+    /**
+     * Add product to the model
+     * @param name name of the new product
+     * @param count amount of product present in the model
+     * @param price price of the product
+     * @param groups set of [GroupID]s to which product belongs
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Product] otherwise
+     */
+    override fun addProduct(
+        name: String,
+        count: Int,
+        price: Double,
+        groups: Set<GroupID>
+    ): Either<ModelException, Product> = when {
+        count < 0 -> Left(ModelException.ProductCanNotHaveThisCount(count))
+        price < 0 -> Left(ModelException.ProductCanNotHaveThisPrice(price))
+        // Wrap everything in a transaction
+        else -> source.connection.use { connection ->
+            connection.transaction {
+                // Check if all of the groups to be added to product exist
+                if (groups.isNotEmpty()) {
+                    createStatement().use { statement ->
+                        val result = statement.executeQuery(
+                            """
                         SELECT id
                         FROM product_group
                         WHERE id IN ( ${groups.map { it.id }.joinToString()} )
                         """
-                    )
-                    val retrievedIDs = result.iterator().asSequence()
-                        .map { it.getInt("id") }
-                        .map { GroupID(it) }
-                    val missingGroups = groups - retrievedIDs
-                    if (missingGroups.isNotEmpty()) return Left(ModelException.GroupsNotPresent(missingGroups))
+                        )
+                        val retrievedIDs = result.iterator().asSequence()
+                            .map { it.getInt("id") }
+                            .map { GroupID(it) }
+                        val missingGroups = groups - retrievedIDs
+                        if (missingGroups.isNotEmpty()) return Left(ModelException.GroupsNotPresent(missingGroups))
+                    }
                 }
-            }
 
-            val productInsertStatement = connection.prepareStatement(
-                "INSERT INTO product (name, count, price) VALUES (?,?,?)",
-                Statement.RETURN_GENERATED_KEYS
-            )
-            productInsertStatement.setString(1, name)
-            productInsertStatement.setInt(2, count)
-            productInsertStatement.setDouble(3, price)
-            productInsertStatement.executeUpdate()
-            val id = productInsertStatement.generatedKeys.use { keys ->
-                keys.next()
-                keys.getInt(1)
-            }
+                val productInsertStatement = connection.prepareStatement(
+                    "INSERT INTO product (name, count, price) VALUES (?,?,?)",
+                    Statement.RETURN_GENERATED_KEYS
+                )
+                productInsertStatement.setString(1, name)
+                productInsertStatement.setInt(2, count)
+                productInsertStatement.setDouble(3, price)
+                productInsertStatement.executeUpdate()
+                val id = productInsertStatement.generatedKeys.use { keys ->
+                    keys.next()
+                    keys.getInt(1)
+                }
 
-            if (groups.isNotEmpty()) {
-                createStatement().use { statement ->
-                    statement.executeUpdate(
-                        """
+                if (groups.isNotEmpty()) {
+                    createStatement().use { statement ->
+                        statement.executeUpdate(
+                            """
                         INSERT INTO product_product_group (productID, groupID) 
                         VALUES ${groups.joinToString { "($id, ${it.id})" }}
                         """
-                    )
+                        )
+                    }
                 }
-            }
-            Right(Product(ProductID(id), name, count, price, groups))
-        }                                       // Either<SQLException,       Either<ModelException, Product>>
-            .mapLeft { ModelException.SQL(it) } // Either<ModelException.SQL, Either<ModelException, Product>>
-            .flatMap { it }                     // Either<ModelException,     Product>
+                Right(Product(ProductID(id), name, count, price, groups))
+            }                                       // Either<SQLException,       Either<ModelException, Product>>
+                .mapLeft { ModelException.SQL(it) } // Either<ModelException.SQL, Either<ModelException, Product>>
+                .flatMap { it }                     // Either<ModelException,     Product>
+        }
     }
-}
 
-/**
- * Remove some amount of product to the model
- * @param id [ProductID] of product specified
- * @param quantity amount of product to be removed
- * @return [Either] a [ModelException], in case operation cannot be fulfilled or product's current count otherwise
- * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
- * if amount of product left after removal is less than 0, [Left] of [ModelException.ProductCanNotHaveThisPrice]
- * will be returned
- * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
- */
-override fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-    TODO()
+    /**
+     * Remove some amount of product to the model
+     * @param id [ProductID] of product specified
+     * @param quantity amount of product to be removed
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or product's current count otherwise
+     * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
+     * if amount of product left after removal is less than 0, [Left] of [ModelException.ProductCanNotHaveThisPrice]
+     * will be returned
+     * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
+     */
+    override fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
+        TODO()
 //        val statement = connection.createStatement()
 //        val resultSet = statement.executeQuery(
 //            String.format("update count with $quantity from 'products' with $id ")
 //        )
 
-}
+    }
 
-/**
- * Remove some amount of product to the model
- * @param id [ProductID] of product specified
- * @param quantity amount of product to be removed
- * @return [Either] a [ModelException], in case operation cannot be fulfilled or product's current count otherwise
- * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
- * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
- */
-override fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-    TODO()
+    /**
+     * Remove some amount of product to the model
+     * @param id [ProductID] of product specified
+     * @param quantity amount of product to be removed
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or product's current count otherwise
+     * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
+     * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
+     */
+    override fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
+        TODO()
 //        val statement = connection.createStatement()
 //        val resultSet = statement.executeQuery(
 //            String.format("update count with $quantity from 'products' with $id ")
 //        )
-}
+    }
 
-/**
- * Add new group to the model
- * @param name name of the new group
- * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
- */
-override fun addGroup(name: String): Either<ModelException, Group> {
-    TODO()
+    /**
+     * Add new group to the model
+     * @param name name of the new group
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
+     */
+    override fun addGroup(name: String): Either<ModelException, Group> {
+        TODO()
 //        val insertStatement =
 //            connection.prepareStatement("""inset into groups(id, name) values(?,?)""")
 //        connection.autoCommit
@@ -312,70 +312,70 @@ override fun addGroup(name: String): Either<ModelException, Group> {
 //        val result = insertStatement.generatedKeys
 //        connection.commit()
 //        return Right(result)
-}
+    }
 
-/**
- * Assign group by it's [id][GroupID] to the product
- * @param product [ProductID] of a product to assign group to
- * @param groupId [GroupID] of a group that is assigned to the product
- * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
- * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
- * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
- */
-override fun assignGroup(product: ProductID, groupId: GroupID): Either<ModelException, Unit> {
-    TODO()
+    /**
+     * Assign group by it's [id][GroupID] to the product
+     * @param product [ProductID] of a product to assign group to
+     * @param groupId [GroupID] of a group that is assigned to the product
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
+     * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
+     */
+    override fun assignGroup(product: ProductID, groupId: GroupID): Either<ModelException, Unit> {
+        TODO()
 
-}
+    }
 
-/**
- * Update the price of product in the model
- * @param id [ProductID] of a product which price will be set
- * @param price new price of a product
- * @return [Either] a [ModelException], in case operation cannot be fulfilled or product's current price otherwise
- * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
- * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
- */
-override fun setPrice(id: ProductID, price: Double): Either<ModelException, Double> {
-    TODO()
+    /**
+     * Update the price of product in the model
+     * @param id [ProductID] of a product which price will be set
+     * @param price new price of a product
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or product's current price otherwise
+     * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
+     * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
+     */
+    override fun setPrice(id: ProductID, price: Double): Either<ModelException, Double> {
+        TODO()
 //        val statement = connection.createStatement()
 //        val resultSet = statement.executeQuery(
 //            String.format("update price with $price from 'products' with $id ")
 //        )
 
-}
+    }
 
-/**
- * Erase all of the data from the model. **NOTE: USE REALLY CAREFULLY AND IN TESTS ONLY**
- * If model prohibits clears [ModelException] is returned or [Unit] otherwise
- */
-@TestingOnly
-override fun clear(): Either<ModelException, Unit> = source.connection.use { connection ->
-    connection.executeUpdate("DELETE FROM product")
-    connection.executeUpdate("DELETE FROM product_groups")
-    return Right(Unit)
-}
+    /**
+     * Erase all of the data from the model. **NOTE: USE REALLY CAREFULLY AND IN TESTS ONLY**
+     * If model prohibits clears [ModelException] is returned or [Unit] otherwise
+     */
+    @TestingOnly
+    override fun clear(): Either<ModelException, Unit> = source.connection.use { connection ->
+        connection.executeUpdate("DELETE FROM product")
+        connection.executeUpdate("DELETE FROM product_groups")
+        return Right(Unit)
+    }
 
-override fun close() {
-    source.close()
-}
+    override fun close() {
+        source.close()
+    }
 
-companion object {
-    fun preparedSQLOffset(offset: Int?) = offset.transformNotNull { "OFFSET ?" }
-    fun preparedSQLLimit(amount: Int?) = amount.transformNotNull { "LIMIT ?" }
+    companion object {
+        fun preparedSQLOffset(offset: Int?) = offset.transformNotNull { "OFFSET ?" }
+        fun preparedSQLLimit(amount: Int?) = amount.transformNotNull { "LIMIT ?" }
 
-    fun insertSQLOffset(statement: PreparedStatement, offset: Int?, idx: Int) =
-        idx + if (offset != null) {
-            statement.setInt(idx, offset)
-            1
-        } else 0
+        fun insertSQLOffset(statement: PreparedStatement, offset: Int?, idx: Int) =
+            idx + if (offset != null) {
+                statement.setInt(idx, offset)
+                1
+            } else 0
 
-    fun insertSQLLimit(statement: PreparedStatement, amount: Int?, idx: Int) =
-        idx + if (amount != null) {
-            statement.setInt(idx, amount)
-            1
-        } else 0
+        fun insertSQLLimit(statement: PreparedStatement, amount: Int?, idx: Int) =
+            idx + if (amount != null) {
+                statement.setInt(idx, amount)
+                1
+            } else 0
 
-}
+    }
 }
 
 fun main() {
@@ -402,7 +402,10 @@ fun main() {
         model.getProducts(),
         model.getProducts(offset = 1, amount = 1),
         model.getProducts(Criteria(name = "it"), offset = 0, amount = 5),
-        model.getProducts(Criteria(fromPrice = 10.0), ordering = Ordering.by(ProductProperty.NAME).andThen(ProductProperty.PRICE, Order.DESCENDING)),
+        model.getProducts(
+            Criteria(fromPrice = 10.0),
+            ordering = Ordering.by(ProductProperty.NAME).andThen(ProductProperty.PRICE, Order.DESCENDING)
+        ),
         model.getProducts(Criteria(fromPrice = 10.0, toPrice = 15.0)),
         model.getProducts(Criteria(inGroups = groups))
     )

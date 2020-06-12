@@ -32,8 +32,7 @@ class UDPEncryptedClientTest {
     private val model = SQLiteModel(":memory:")
 
     private val key: Key
-    private val clientCipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-    private val serverCipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+    private val cipherFactory = { Cipher.getInstance("AES/CBC/PKCS5Padding") }
 
     init {
         val generator = KeyGenerator.getInstance("AES")
@@ -48,12 +47,12 @@ class UDPEncryptedClientTest {
         server.socket.localPort,
         UserID.assign(),
         key,
-        clientCipher
+        cipherFactory()
     )
     private lateinit var biscuit: Product
 
     init {
-        thread { server.serve(model, key, serverCipher) }
+        thread { server.serve(model, key, cipherFactory) }
     }
 
     @BeforeEach
@@ -81,7 +80,7 @@ class UDPEncryptedClientTest {
     @Test
     fun `should get count`() {
         runBlocking {
-            val response = client.getQuantity(biscuit.id)
+            val response = client.getProduct(biscuit.id)
             assertRight(10, response.map { it.count })
             assertRight(biscuit.id, response.map { it.id })
         }
@@ -104,7 +103,7 @@ class UDPEncryptedClientTest {
     @Test
     fun `should receive server error`() {
         runBlocking {
-            val result = client.getQuantity(ProductID.UNSET)
+            val result = client.getProduct(ProductID.UNSET)
             assertLeftType<FetchException.ServerResponse>(result)
         }
     }

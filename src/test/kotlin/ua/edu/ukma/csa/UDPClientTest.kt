@@ -60,7 +60,7 @@ class UDPClientTest {
     @Test
     fun `should get count`() {
         runBlocking {
-            val response = client.getQuantity(biscuit.id)
+            val response = client.getProduct(biscuit.id)
             assertRight(10, response.map { it.count })
             assertRight(biscuit.id, response.map { it.id })
         }
@@ -83,7 +83,7 @@ class UDPClientTest {
     @Test
     fun `should receive server error`() {
         runBlocking {
-            assertLeftType<FetchException.ServerResponse>(client.getQuantity(ProductID.UNSET))
+            assertLeftType<FetchException.ServerResponse>(client.getProduct(ProductID.UNSET))
         }
     }
 
