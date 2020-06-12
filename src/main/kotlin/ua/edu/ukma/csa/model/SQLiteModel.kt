@@ -4,12 +4,16 @@ import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
 import arrow.core.flatMap
+import arrow.syntax.function.partially2
 import com.zaxxer.hikari.HikariDataSource
+import ua.edu.ukma.csa.kotlinx.arrow.core.bind
 import ua.edu.ukma.csa.kotlinx.java.sql.execute
 import ua.edu.ukma.csa.kotlinx.java.sql.executeUpdate
 import ua.edu.ukma.csa.kotlinx.java.sql.iterator
 import ua.edu.ukma.csa.kotlinx.java.sql.transaction
+import ua.edu.ukma.csa.kotlinx.transformNotNull
 import java.io.Closeable
+import java.sql.PreparedStatement
 import java.sql.SQLException
 import java.sql.Statement
 
@@ -90,14 +94,21 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Product] otherwise
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
-    override fun getProduct(id: ProductID): Either<ModelException, Product> {
-        TODO()
-//        val statement = connection.createStatement()
-//        val resultSet = statement.executeQuery(
-//            String.format("select $id from 'products'")
-//        )
-//        resultSet.row
-//        return Right()
+    override fun getProduct(id: ProductID): Either<ModelException, Product> = source.connection.use { connection ->
+        connection.prepareStatement("SELECT id, name, count, price FROM product WHERE id = ?").use { statement ->
+            statement.setInt(1, id.id)
+            val result = statement.executeQuery()
+            if (result.next()) {
+                Right(
+                    Product(
+                        id = ProductID(result.getInt("id")),
+                        name = result.getString("name"),
+                        count = result.getInt("count"),
+                        price = result.getDouble("price")
+                    )
+                )
+            } else Left(ModelException.ProductDoesNotExist(id))
+        }
     }
 
     /**
@@ -112,26 +123,65 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      */
     override fun getProducts(
         criteria: Criteria,
-        ordering: Ordering?,
+        ordering: List<Ordering>,
         offset: Int?,
         amount: Int?
-    ): Either<ModelException, List<Product>> {
-        TODO()
-//        val statement = connection.createStatement()
-//        val resultSet = statement.executeQuery(
-//            String.format("""select from 'products' limit %s offset %s , offset, offset * amount""")
-//        )
+    ): Either<ModelException, List<Product>> = when {
+        offset != null && offset < 0 -> Left(ModelException.InvalidRequest("offset should be a positive integer"))
+        amount != null && amount < 0 -> Left(ModelException.InvalidRequest("amount should be a positive integer"))
+        offset != null && amount == null ->
+            Left(ModelException.InvalidRequest("Cannot specify offset without also setting amount"))
+        else -> source.connection.use { connection ->
+            val whenStatement = listOfNotNull(
+                criteria.preparedNameSQL("name"),
+                criteria.preparedPriceSQL("price"),
+                criteria.preparedGroupSQL("group_id").transformNotNull {
+                    "id IN (SELECT product_id FROM product_product_group WHERE $it)"
+                }
+            ).joinToString(separator = " AND ")
+            val query = listOfNotNull(
+                "SELECT id, name, count, price FROM product",
+                if (whenStatement.isEmpty()) null else "WHERE $whenStatement",
+                preparedSQLLimit(amount),
+                preparedSQLOffset(offset)
+            ).joinToString(separator = " ")
 
-//        val products = ArrayList<Product>()
-//        while (resultSet.next()) {
-//            products.add(
-//                Product(
-//                    resultSet.getInt("id"), resultSet.getString("name"),
-//                    resultSet.getInt("count"), resultSet.getDouble("price")
-//                )
-//            )
-//        }
-//        return Right(products)
+            try {
+                connection.prepareStatement(query).use { statement ->
+                    listOf(
+                        criteria::insertNamePlaceholders,
+                        criteria::insertPricePlaceholders,
+                        criteria::insertGroupsPlaceholders,
+                        ::insertSQLLimit.partially2(amount),
+                        ::insertSQLOffset.partially2(offset)
+                    )
+                        .map { it.bind(statement) }
+                        .fold(1) { idx, inserter -> inserter(idx) }
+
+                    val result = statement.executeQuery()
+
+                    val products = result.iterator().asSequence().map { row ->
+                        val id = row.getInt("id")
+                        val name = row.getString("name")
+                        val count = row.getInt("count")
+                        val price = row.getDouble("price")
+                        val groups = connection.createStatement().use { groupStatement ->
+                            groupStatement.executeQuery(
+                                "SELECT group_id FROM product_product_group WHERE product_id = $id"
+                            ).iterator().asSequence()
+                                .map { it.getInt("group_id") }
+                                .map { GroupID(it) }
+                                .toSet()
+                        }
+                        Product(ProductID(id), name, count, price, groups)
+                    }
+
+                    Right(products.toList())
+                }
+            } catch (e: SQLException) {
+                Left(ModelException.SQL(e))
+            }
+        }
     }
 
     /**
@@ -141,7 +191,14 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
     override fun removeProduct(id: ProductID): Either<ModelException, Unit> {
-        TODO()
+        if (id.id == 0) return Left(ModelException.ProductDoesNotExist(id))
+        val deleteProduct =
+            source.connection.prepareStatement("""DELETE FROM product WHERE id = ? """)
+        deleteProduct.setInt(1, id.id)
+        deleteProduct.executeUpdate()
+        source.connection.close()
+        deleteProduct.close()
+        return Right(Unit)
     }
 
     /**
@@ -221,13 +278,16 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * will be returned
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
-    override fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-        TODO()
-//        val statement = connection.createStatement()
-//        val resultSet = statement.executeQuery(
-//            String.format("update count with $quantity from 'products' with $id ")
-//        )
-
+    override fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Unit> {
+        return if (quantity < 0) {
+            Left(ModelException.ProductCanNotHaveThisCount(quantity))
+            } else {
+            source.connection.autoCommit = false
+            val updateCount =
+                source.connection.prepareStatement("""UPDATE product SET count = count - $quantity WHERE id = ${id.id}""")
+            updateCount.executeUpdate()
+            Right(Unit)
+        }
     }
 
     /**
@@ -238,12 +298,16 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
-    override fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int> {
-        TODO()
-//        val statement = connection.createStatement()
-//        val resultSet = statement.executeQuery(
-//            String.format("update count with $quantity from 'products' with $id ")
-//        )
+    override fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Unit> {
+        return if (quantity < 0) {
+            Left(ModelException.ProductCanNotHaveThisCount(quantity))
+        } else {
+            source.connection.autoCommit = false
+            val updateCount =
+                source.connection.prepareStatement("""UPDATE product SET count = count + $quantity WHERE id = ${id.id}""")
+            updateCount.executeUpdate()
+            Right(Unit)
+        }
     }
 
     /**
@@ -252,16 +316,27 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
     override fun addGroup(name: String): Either<ModelException, Group> {
-        TODO()
-//        val insertStatement =
-//            connection.prepareStatement("""inset into groups(id, name) values(?,?)""")
-//        connection.autoCommit
-//        insertStatement.setString(1, group.toString())
-//        insertStatement.setString(2, name)
-//        insertStatement.executeQuery()
-//        val result = insertStatement.generatedKeys
-//        connection.commit()
-//        return Right(result)
+        val groupInsertStatement = source.connection.prepareStatement(
+            "INSERT INTO product_group (name) VALUES (?)",
+            Statement.RETURN_GENERATED_KEYS
+        )
+        groupInsertStatement.setString(1, name)
+        val id = groupInsertStatement.generatedKeys.use { keys ->
+            keys.next()
+            keys.getInt(1)
+        }
+
+        val result = groupInsertStatement.executeQuery()
+
+        return if (result.next()) {
+            source.connection.close()
+            Right(
+                Group(
+                    id = GroupID(result.getInt("id")),
+                    name = result.getString("name")
+                )
+            )
+        } else Left(ModelException.GroupAlreadyExists(GroupID(id)))
     }
 
     /**
@@ -285,13 +360,16 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
-    override fun setPrice(id: ProductID, price: Double): Either<ModelException, Double> {
-        TODO()
-//        val statement = connection.createStatement()
-//        val resultSet = statement.executeQuery(
-//            String.format("update price with $price from 'products' with $id ")
-//        )
-
+    override fun setPrice(id: ProductID, price: Double): Either<ModelException, Unit> {
+        return if (price < 0) {
+            Left(ModelException.ProductCanNotHaveThisPrice(price))
+        } else {
+            source.connection.autoCommit = false
+            val setPrice =
+                source.connection.prepareStatement("""UPDATE product SET price=$price WHERE id = ${id.id}""")
+            setPrice.executeUpdate()
+            Right(Unit)
+        }
     }
 
     /**
@@ -308,23 +386,83 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
     override fun close() {
         source.close()
     }
+
+    companion object {
+        fun preparedSQLOffset(offset: Int?) = offset.transformNotNull { "OFFSET ?" }
+        fun preparedSQLLimit(amount: Int?) = amount.transformNotNull { "LIMIT ?" }
+
+        fun insertSQLOffset(statement: PreparedStatement, offset: Int?, idx: Int) =
+            idx + if (offset != null) {
+                statement.setInt(idx, offset)
+                1
+            } else 0
+
+        fun insertSQLLimit(statement: PreparedStatement, amount: Int?, idx: Int) =
+            idx + if (amount != null) {
+                statement.setInt(idx, amount)
+                1
+            } else 0
+
+    }
 }
 
 fun main() {
     val model = SQLiteModel("test.db")
 
-    val product = model.addProduct(name = "Pr1", price = 1.2)
+//    val product = model.addProduct(name = "Pr1", price = 1.2)
+//    println(product)
+//
+//    val invalidProducts = listOf(
+//        model.addProduct(name = "Pr2", count = -3, price = 1.2),
+//        model.addProduct(name = "Pr2", count = 10, price = -1.2),
+//        model.addProduct(
+//            name = "Pr2",
+//            price = 1.2,
+//            groups = listOf(1, 2).map { GroupID(it) }.toSet()
+//        )
+//    )
+//
+//    println(invalidProducts)
+
+    val groups = (1..2).map { GroupID(it) }.toSet()
+
+    val productRequests = listOf(
+        model.getProducts(),
+        model.getProducts(offset = 1, amount = 1),
+        model.getProducts(Criteria(name = "it"), offset = 0, amount = 5),
+        model.getProducts(
+            Criteria(fromPrice = 10.0),
+            ordering = Ordering.by(ProductProperty.NAME).andThen(ProductProperty.PRICE, Order.DESCENDING)
+        ),
+        model.getProducts(Criteria(fromPrice = 10.0, toPrice = 15.0)),
+        model.getProducts(Criteria(inGroups = groups))
+    )
+    productRequests.forEach(::println)
+
+    val product = model.addProduct(name = "Pr1", count = 10, price = 1.2)
     println(product)
 
-    val invalidProducts = listOf(
-        model.addProduct(name = "Pr2", count = -3, price = 1.2),
-        model.addProduct(name = "Pr2", count = 10, price = -1.2),
-        model.addProduct(
-            name = "Pr2",
-            price = 1.2,
-            groups = listOf(1, 2).map { GroupID(it) }.toSet()
-        )
-    )
+    val decreaseProductCount = product.flatMap { model.deleteQuantityOfProduct(it.id, 5) }
+    println(decreaseProductCount)
 
-    println(invalidProducts)
+    val decreaseInvalidProductCount = product.flatMap { model.deleteQuantityOfProduct(it.id, -5) }
+    println(decreaseInvalidProductCount)
+
+    val increaseProductCount = product.flatMap { model.addQuantityOfProduct(it.id, 3) }
+    println(increaseProductCount)
+
+    val increaseInvalidProductCount = product.flatMap { model.addQuantityOfProduct(it.id, -2) }
+    println(increaseInvalidProductCount)
+
+    val setProductPrice = product.flatMap { model.setPrice(it.id, 8.5) }
+    println(setProductPrice)
+
+    val getProduct = product.flatMap { model.getProduct(it.id) }
+    println(getProduct)
+
+    val prod2 = model.addProduct(name = "Pr2", count = 10, price = 1.2)
+    println(prod2)
+
+    val deleteProduct = product.flatMap { model.removeProduct(it.id) }
+    println(deleteProduct)
 }
