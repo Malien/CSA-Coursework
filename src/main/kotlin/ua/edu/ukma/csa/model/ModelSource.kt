@@ -91,7 +91,7 @@ interface ModelSource {
      * will be returned
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
-    fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int>
+    fun deleteQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Unit>
 
     /**
      * Remove some amount of product to the model
@@ -101,7 +101,7 @@ interface ModelSource {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      * @note might want to unite [deleteQuantityOfProduct] and [addQuantityOfProduct] to use signed ints instead.
      */
-    fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Int>
+    fun addQuantityOfProduct(id: ProductID, quantity: Int): Either<ModelException, Unit>
 
     /**
      * Add new group to the model
@@ -128,7 +128,7 @@ interface ModelSource {
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
-    fun setPrice(id: ProductID, price: Double): Either<ModelException, Double>
+    fun setPrice(id: ProductID, price: Double): Either<ModelException, Unit>
 
     /**
      * Clear all of the data from model. **NOTE: USE REALLY CAREFULLY AND FOR TESTS ONLY**

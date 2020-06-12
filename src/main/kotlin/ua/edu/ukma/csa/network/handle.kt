@@ -39,10 +39,10 @@ inline fun <reified Req : Request, reified Res : Response> processMessage(
 fun ModelSource.handleMessage(message: Message.Decrypted): Message.Decrypted = when (message.type) {
     OK, ERR, PACKET_BEHIND -> Left(RuntimeException("Cannot process request of type ${message.type}"))
     INCLUDE -> processMessage(message) { request: Request.Include ->
-        addQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = it) }
+        addQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = request.count) }
     }
     EXCLUDE -> processMessage(message) { request: Request.Exclude ->
-        deleteQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = it) }
+        deleteQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = request.count) }
     }
     ADD_GROUP -> processMessage(message) { request: Request.AddGroup ->
         addGroup(request.name).map { Response.Group(it) }
@@ -51,7 +51,7 @@ fun ModelSource.handleMessage(message: Message.Decrypted): Message.Decrypted = w
         assignGroup(request.product, request.group).map { Response.Ok }
     }
     SET_PRICE -> processMessage(message) { request: Request.SetPrice ->
-        setPrice(request.id, request.price).map { Response.Price(id = request.id, count = it) }
+        setPrice(request.id, request.price).map { Response.Price(id = request.id, count = request.price) }
     }
     ADD_PRODUCT -> processMessage(message) { request: Request.AddProduct ->
         addProduct(request.name, request.count, request.price, request.groups).map { Response.Product(it) }
