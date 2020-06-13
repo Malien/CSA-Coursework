@@ -29,6 +29,7 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:2.0.0-alpha1") // SLF4J Logger (used by Hikari)
     implementation("com.zaxxer:HikariCP:3.4.5") // JDBC connection pool
     implementation(kotlin("script-runtime")) // Ability to run kotlin scripts
+    implementation("commons-codec:commons-codec:1.14") // Apache commons codec
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.2.0") // JUnit 5
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.2.0") // JUnit 5 engine

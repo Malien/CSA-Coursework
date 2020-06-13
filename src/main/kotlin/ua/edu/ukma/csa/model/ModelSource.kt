@@ -130,6 +130,16 @@ interface ModelSource {
      */
     fun setPrice(id: ProductID, price: Double): Either<ModelException, Unit>
 
+    fun addUser(login: String, password: String): Either<ModelException, User>
+
+    fun getUser(id: UserID): Either<ModelException, User>
+
+    fun isTokenValid(token: String): Either<ModelException, Boolean>
+
+    fun invalidateToken(token: String): Either<ModelException, Unit>
+
+    fun approveToken(token: String): Either<ModelException, Unit>
+
     /**
      * Clear all of the data from model. **NOTE: USE REALLY CAREFULLY AND FOR TESTS ONLY**
      * If model prohibits clears [ModelException] is returned or [Unit] otherwise
