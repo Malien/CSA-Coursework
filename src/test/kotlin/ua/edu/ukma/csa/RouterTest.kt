@@ -72,7 +72,7 @@ class RouterTest {
             }
         }
         server.createContext("/", router)
-        server.bind(InetSocketAddress(InetAddress.getByName("0.0.0.0"), PORT), 50)
+        server.bind(InetSocketAddress(InetAddress.getLocalHost(), PORT), 50)
         server.start()
     }
 
