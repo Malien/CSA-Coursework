@@ -282,7 +282,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
             Left(ModelException.ProductCanNotHaveThisCount(quantity))
         } else {
             source.connection.use { connection ->
-                try{
+                try {
                     connection.executeUpdate(
                         "UPDATE product SET count = count - $quantity WHERE id = ${id.id}"
                     )
@@ -307,7 +307,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
             Left(ModelException.ProductCanNotHaveThisCount(quantity))
         } else {
             source.connection.use { connection ->
-                try{
+                try {
                     connection.executeUpdate(
                         "UPDATE product SET count = count + $quantity WHERE id = ${id.id}"
                     )
@@ -402,7 +402,6 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         return if (price < 0) {
             Left(ModelException.ProductCanNotHaveThisPrice(price))
         } else {
-            source.connection.autoCommit = false
             val setPrice =
                 source.connection.prepareStatement("""UPDATE product SET price=$price WHERE id = ${id.id}""")
             setPrice.executeUpdate()
@@ -462,35 +461,39 @@ fun main() {
 //
 //    println(invalidProducts)
 
-    val groups = (1..2).map { GroupID(it) }.toSet()
-
-    val productRequests = listOf(
-        model.getProducts(),
-        model.getProducts(offset = 1, amount = 1),
-        model.getProducts(Criteria(name = "it"), offset = 0, amount = 5),
-        model.getProducts(
-            Criteria(fromPrice = 10.0),
-            ordering = Ordering.by(ProductProperty.NAME).andThen(ProductProperty.PRICE, Order.DESCENDING)
-        ),
-        model.getProducts(Criteria(fromPrice = 10.0, toPrice = 15.0)),
-        model.getProducts(Criteria(inGroups = groups))
-    )
-    productRequests.forEach(::println)
+//    val groups = (1..2).map { GroupID(it) }.toSet()
+//
+//    val productRequests = listOf(
+//        model.getProducts(),
+//        model.getProducts(offset = 1, amount = 1),
+//        model.getProducts(Criteria(name = "it"), offset = 0, amount = 5),
+//        model.getProducts(
+//            Criteria(fromPrice = 10.0),
+//            ordering = Ordering.by(ProductProperty.NAME).andThen(ProductProperty.PRICE, Order.DESCENDING)
+//        ),
+//        model.getProducts(Criteria(fromPrice = 10.0, toPrice = 15.0)),
+//        model.getProducts(Criteria(inGroups = groups))
+//    )
+//    productRequests.forEach(::println)
 
     val product = model.addProduct(name = "Pr1", count = 10, price = 1.2)
     println("product: $product")
 
-    val decreaseProductCount = product.flatMap { model.deleteQuantityOfProduct(it.id, 5) }
-    println(decreaseProductCount)
-
-    val decreaseInvalidProductCount = product.flatMap { model.deleteQuantityOfProduct(it.id, -5) }
-    println(decreaseInvalidProductCount)
-
-    val increaseProductCount = product.flatMap { model.addQuantityOfProduct(it.id, 3) }
-    println(increaseProductCount)
-
-    val increaseInvalidProductCount = product.flatMap { model.addQuantityOfProduct(it.id, -2) }
-    println(increaseInvalidProductCount)
+//    val decreaseProductCount = product.flatMap { model.deleteQuantityOfProduct(it.id, 5) }
+//    println(decreaseProductCount)
+//    println(getProduct)
+//
+//    val decreaseInvalidProductCount = product.flatMap { model.deleteQuantityOfProduct(it.id, -5) }
+//    println(decreaseInvalidProductCount)
+//    println(getProduct)
+//
+//    val increaseProductCount = product.flatMap { model.addQuantityOfProduct(it.id, 3) }
+//    println(increaseProductCount)
+//    println(getProduct)
+//
+//    val increaseInvalidProductCount = product.flatMap { model.addQuantityOfProduct(it.id, -2) }
+//    println(increaseInvalidProductCount)
+//    println(getProduct)
 
     val setProductPrice = product.flatMap { model.setPrice(it.id, 8.5) }
     println(setProductPrice)
@@ -498,17 +501,18 @@ fun main() {
     val getProduct = product.flatMap { model.getProduct(it.id) }
     println(getProduct)
 
-    val prod2 = model.addProduct(name = "Pr2", count = 10, price = 1.2)
-    println(prod2)
 
-    val deleteProduct = product.flatMap { model.removeProduct(it.id) }
-    println(deleteProduct)
-
-    val newGroup = model.addGroup("Gr1")
-    println(newGroup)
-
-    val assignGroupToProduct = prod2.flatMap { pr ->
-        newGroup.flatMap { gr -> model.assignGroup(pr.id, gr.id) }
-    }
-    println(assignGroupToProduct)
+//    val prod2 = model.addProduct(name = "Pr2", count = 10, price = 1.2)
+//    println(prod2)
+//
+//    val deleteProduct = product.flatMap { model.removeProduct(it.id) }
+//    println(deleteProduct)
+//
+//    val newGroup = model.addGroup("Gr1")
+//    println(newGroup)
+//
+//    val assignGroupToProduct = prod2.flatMap { pr ->
+//        newGroup.flatMap { gr -> model.assignGroup(pr.id, gr.id) }
+//    }
+//    println(assignGroupToProduct)
 }
