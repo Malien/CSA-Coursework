@@ -150,8 +150,8 @@ class SQLiteModelTest {
 
     @Test
     fun deleteQuantityOfProductValidate() {
-        val newCount = model.deleteQuantityOfProduct(biscuit.id, 20)
-        assertRight(Unit, newCount)
+        model.deleteQuantityOfProduct(biscuit.id, 20).handleWithThrow()
+        assertRight(80, model.getProduct(biscuit.id).map { it.count })
     }
 
     @Test
@@ -166,8 +166,8 @@ class SQLiteModelTest {
 
     @Test
     fun addQuantityOfProductValidate() {
-        val newCount = model.addQuantityOfProduct(biscuit.id, 50)
-        assertRight(Unit, newCount)
+        model.addQuantityOfProduct(biscuit.id, 50).handleWithThrow()
+        assertRight(150, model.getProduct(biscuit.id).map { it.count })
     }
 
     @Test
