@@ -1,18 +1,18 @@
 package ua.edu.ukma.csa
 
-import arrow.core.Left
-import arrow.core.Right
-import arrow.core.extensions.list.functor.mapConst
-import com.zaxxer.hikari.HikariDataSource
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
 
-class SQLiteModelTests {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class SQLiteModelTest {
 
     private lateinit var biscuit: Product
     private lateinit var conditioner: Product
@@ -23,9 +23,6 @@ class SQLiteModelTests {
     private lateinit var sweets: Group
     private lateinit var cosmetics: Group
     private lateinit var diary: Group
-
-    private val source: HikariDataSource = HikariDataSource()
-
 
     @BeforeEach
     fun populate() {
@@ -38,8 +35,6 @@ class SQLiteModelTests {
         sweets = model.addGroup("Sweets").handleWithThrow()
         cosmetics = model.addGroup("Cosmetics").handleWithThrow()
         diary = model.addGroup("Diary").handleWithThrow()
-
-
     }
 
     @AfterAll
@@ -49,8 +44,12 @@ class SQLiteModelTests {
 
     @Test
     fun addProductCheck() {
-        val lego = model.addProduct(name = "Ninjago", count = -5, price = -1.3)
-        assertLeftType<ModelException>(lego)
+        assertLeftType<ModelException.ProductCanNotHaveThisCount>(
+            model.addProduct(name = "Ninjago", count = -5, price = 1.3)
+        )
+        assertLeftType<ModelException.ProductCanNotHaveThisPrice>(
+            model.addProduct(name = "Ninjago", count = 5, price = -1.3)
+        )
     }
 
     @Test
@@ -64,8 +63,8 @@ class SQLiteModelTests {
     @Test
     fun removeProductInvalidate() {
         val robot = Product(name = "Robot Technic", count = 5, price = 4567.9)
-        val deleteProduct = model.removeProduct(robot.id)
-        assertLeftType<ModelException.ProductDoesNotExist>(deleteProduct)
+        val deletedProduct = model.removeProduct(robot.id)
+        assertLeftType<ModelException.ProductDoesNotExist>(deletedProduct)
     }
 
     @Test
@@ -77,6 +76,7 @@ class SQLiteModelTests {
     @Test
     fun assignGroup() {
         model.assignGroup(biscuit.id, cosmetics.id).handleWithThrow()
+        assertRight(true, model.getProduct(biscuit.id).map { it.groups }.map { cosmetics.id in it })
         assertLeftType<ModelException.GroupDoesNotExist>(model.assignGroup(biscuit.id, GroupID.UNSET))
     }
 
@@ -94,34 +94,44 @@ class SQLiteModelTests {
 
     @Test
     fun getProducts() {
-        val groups = (1..2).map { GroupID(it) }.toSet()
-        listOf(
-            model.getProducts(),
-            model.getProducts(offset = 1, amount = 1),
-            model.getProducts(Criteria(name = "it"), offset = 0, amount = 5),
-            model.getProducts(
-                Criteria(fromPrice = 10.0),
-                ordering = Ordering.by(ProductProperty.NAME).andThen(ProductProperty.PRICE, Order.DESCENDING)
-            ),
-            model.getProducts(Criteria(fromPrice = 10.0, toPrice = 15.0)),
-            model.getProducts(Criteria(inGroups = groups))
-        )
-    }
+        model.assignGroup(biscuit.id, sweets.id).handleWithThrow()
+        model.assignGroup(conditioner.id, cosmetics.id).handleWithThrow()
+        model.assignGroup(iceCream.id, sweets.id).handleWithThrow()
+        model.assignGroup(iceCream.id, diary.id).handleWithThrow()
 
-    @Test
-    fun getProductsInvalidate() {
-        val groups = (4..5).map { GroupID(it) }.toSet()
-        listOf(
-            model.getProducts(),
-            model.getProducts(offset = -2, amount = -1),
-            model.getProducts(Criteria(name = "it"), offset = 1, amount = 5),
-            model.getProducts(
-                Criteria(fromPrice = 10.0),
-                ordering = Ordering.by(ProductProperty.NAME).andThen(ProductProperty.PRICE, Order.DESCENDING)
-            ),
-            model.getProducts(Criteria(fromPrice = 10.0, toPrice = 15.0)),
-            model.getProducts(Criteria(inGroups = groups))
-        )
+        val allProducts = model.getProducts().handleWithThrow()
+        assertTrue(biscuit in allProducts)
+        assertTrue(conditioner in allProducts)
+        assertTrue(iceCream in allProducts)
+
+        assertLeftType<ModelException.InvalidRequest>(model.getProducts(offset = allProducts[0].id.id, amount = -1))
+        val afterFirst = model.getProducts(offset = 1, amount = 1).handleWithThrow()
+        assertEquals(1, afterFirst.size)
+        assertEquals(allProducts[1], afterFirst[0])
+
+        val containsIt = model.getProducts(Criteria(name = "it")).handleWithThrow()
+        assertTrue(biscuit in containsIt)
+        assertTrue(conditioner in containsIt)
+        assertTrue(iceCream !in containsIt)
+
+        val startingAtPrice = model.getProducts(Criteria(fromPrice = 10.0)).handleWithThrow()
+        assertTrue(biscuit in startingAtPrice)
+        assertTrue(conditioner in startingAtPrice)
+        assertTrue(iceCream !in startingAtPrice)
+
+        val inPriceRange = model.getProducts(Criteria(fromPrice = 10.0, toPrice = 15.0)).handleWithThrow()
+        assertEquals(1, inPriceRange.size)
+        assertEquals(conditioner, inPriceRange[0])
+
+        val inGroups = model.getProducts(Criteria(inGroups = setOf(cosmetics.id, diary.id))).handleWithThrow()
+        assertTrue(biscuit !in inGroups)
+        assertTrue(conditioner in inGroups)
+        assertTrue(iceCream in inGroups)
+
+        val ordered = model.getProducts(
+            orderings = Ordering.by(ProductProperty.NAME, Order.DESCENDING).andThen(ProductProperty.PRICE)
+        ).handleWithThrow()
+        assertEquals(listOf(iceCream, conditioner, biscuit), ordered)
     }
 
     @Test
@@ -130,7 +140,6 @@ class SQLiteModelTests {
         assertRight(Unit, newPrice)
         val getProduct = model.getProduct(biscuit.id)
         assertRight(15.6, getProduct.map { it.price })
-
     }
 
     @Test
