@@ -116,7 +116,6 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
                 preparedSQLLimit(amount),
                 preparedSQLOffset(offset)
             ).joinToString(separator = " ")
-            println(query)
 
             connection.prepareStatement(query).use { statement ->
                 listOf(
