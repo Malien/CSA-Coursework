@@ -4,6 +4,10 @@ import com.sun.net.httpserver.Headers
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import com.sun.net.httpserver.HttpServer
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.request.get
+import kotlinx.coroutines.runBlocking
 import java.io.InputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -33,37 +37,80 @@ class HTTPResponse(
     companion object {
         fun ok(body: String, headers: Headers = Headers()) =
             ok(body.toByteArray(), headers)
+
         fun ok(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
-            HTTPResponse(statusCode = 200, headers = Headers(), body = body)
+            HTTPResponse(200, headers, body)
+
+        fun notFound(body: String, headers: Headers = Headers()) =
+            notFound(body.toByteArray(), headers)
+
+        fun notFound(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
+            HTTPResponse(404, headers, body)
+
+        fun unauthorized(body: String, headers: Headers = Headers()) =
+            unauthorized(body.toByteArray(), headers)
+
+        fun unauthorized(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
+            HTTPResponse(401, headers, body)
+
+        fun invalidRequest(body: String, headers: Headers = Headers()) =
+            invalidRequest(body.toByteArray(), headers)
+
+        fun invalidRequest(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
+            HTTPResponse(400, headers, body)
+
+        fun serverError(body: String, headers: Headers = Headers()) =
+            serverError(body.toByteArray(), headers)
+
+        fun serverError(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
+            HTTPResponse(500, headers, body)
     }
 }
 
 typealias RouteHandler = (request: HTTPRequest) -> HTTPResponse
 
+// TODO: Get rid of stringly typed HTTP methods
 class HTTPMethodDefinition(
     private val handlers: HashMap<String, RouteHandler> = HashMap(),
-    internal val default: RouteHandler? = null
+    internal var defaultHandler: RouteHandler? = null
 ) {
-    fun get(handler: RouteHandler) {
-        handlers["GET"] = handler
+    fun get(handler: RouteHandler) = custom("GET", handler)
+
+    fun post(handler: RouteHandler) = custom("POST", handler)
+
+    fun put(handler: RouteHandler) = custom("PUT", handler)
+
+    fun patch(handler: RouteHandler) = custom("PATCH", handler)
+
+    fun delete(handler: RouteHandler) = custom("DELETE", handler)
+
+    fun head(handler: RouteHandler) = custom("HEAD", handler)
+
+    fun option(handler: RouteHandler) = custom("OPTION", handler)
+
+    fun connect(handler: RouteHandler) = custom("CONNECT", handler)
+
+    fun default(handler: RouteHandler) {
+        defaultHandler = handler
     }
 
-    fun post(handler: RouteHandler) {
-        handlers["POST"] = handler
+    fun custom(method: String, handler: RouteHandler) {
+        handlers[method] = handler
     }
 
     fun unite(other: HTTPMethodDefinition) = handlers.putAll(other.handlers)
 
-    operator fun contains(method: String) = method in handlers
-    operator fun get(method: String) = handlers[method]
+    internal operator fun contains(method: String) = method in handlers
+    internal operator fun get(method: String) = handlers[method]
 }
 
 val String.isSlug get() = this.startsWith(":")
 
-val String.pathComponents: List<String> get() {
-    val refined = if (this.startsWith('/')) this.substring(1) else this
-    return refined.split("/")
-}
+val String.pathComponents: Sequence<String>
+    get() {
+        val refined = if (this.startsWith('/')) this.substring(1) else this
+        return refined.splitToSequence('/')
+    }
 
 data class MatchedSlug(
     val definition: RouteDefinition,
@@ -98,7 +145,7 @@ class RouteDefinition(private val methods: HTTPMethodDefinition = HTTPMethodDefi
         if (components.isEmpty()) {
             when {
                 method in methods -> MatchedHandler(methods[method]!!, matches)
-                methods.default != null -> MatchedHandler(methods.default, matches)
+                methods.defaultHandler != null -> MatchedHandler(methods.defaultHandler!!, matches)
                 else -> NotFound
             }
         } else {
@@ -116,13 +163,26 @@ class RouteDefinition(private val methods: HTTPMethodDefinition = HTTPMethodDefi
 
     inline operator fun String.invoke(builder: HTTPMethodDefinition.() -> Unit): HTTPMethodDefinition {
         val methods = HTTPMethodDefinition().apply(builder)
-        register(methods, this.pathComponents)
+        register(methods, this.pathComponents.map(::encodeURIComponent).map(::decodeURIComponent).toList())
         return methods
     }
 }
 
-class Router : HttpHandler {
-    val definitions = RouteDefinition()
+val defaultMissingRouteHandler: RouteHandler = { request ->
+    HTTPResponse.notFound("Cannot ${request.method} ${request.uri.path}")
+}
+
+// TODO: implement router composition
+class Router(
+    private val handleMissingRoute: Boolean = true,
+    private val missingRouteHandler: RouteHandler = defaultMissingRouteHandler,
+    builder: RouteDefinition.() -> Unit = {}
+) : HttpHandler {
+    private val definitions = RouteDefinition()
+
+    init {
+        definitions.apply(builder)
+    }
 
     /**
      * Handle the given request and generate an appropriate response.
@@ -137,21 +197,23 @@ class Router : HttpHandler {
         val request = HTTPRequest(
             matches = HashMap(),
             headers = exchange.requestHeaders,
-            body =  exchange.requestBody,
+            body = exchange.requestBody,
             method = exchange.requestMethod,
             uri = exchange.requestURI
         )
 
-        val response = try {
-            val handler = findHandler(request.uri.path, request.method)
-            if (handler == null) {
-                HTTPResponse(statusCode = 404)
-            } else {
-                val matched = request.copy(matches = handler.matches)
+        val handler = findHandler(request.uri.path, request.method)
+
+        val response = if (handler == null) {
+            if (handleMissingRoute) missingRouteHandler(request)
+            else return
+        } else {
+            val matched = request.copy(matches = handler.matches)
+            try {
                 handler.handler(matched)
+            } catch (e: Exception) {
+                HTTPResponse(statusCode = 500)
             }
-        } catch (e: Exception) {
-            HTTPResponse(statusCode = 500)
         }
 
         exchange.responseHeaders.putAll(response.headers)
@@ -163,7 +225,9 @@ class Router : HttpHandler {
         }
     }
 
-    private fun findHandler(path: String, method: String) = findHandler(path.pathComponents, method)
+    private fun findHandler(path: String, method: String) =
+        findHandler(path.pathComponents.map(::decodeURIComponent).toList(), method)
+
     private fun findHandler(components: List<String>, method: String): MatchedHandler? {
         val queue = ArrayDeque<MatchedSlug>().apply {
             add(MatchedSlug(definitions, components, HashMap()))
@@ -177,42 +241,61 @@ class Router : HttpHandler {
         }
         return null
     }
-
-    companion object {
-        inline operator fun invoke(builder: RouteDefinition.() -> Unit) =
-            Router().apply { definitions.apply(builder) }
-    }
 }
 
 fun main() {
-    val handler: RouteHandler = { request ->
+    val handler: RouteHandler = {
         println("response")
         HTTPResponse.ok()
     }
 
+//    val router = Router {
+//        "/api" {
+//            get(handler)
+//        }
+//        "/api/:id" {
+//            get(handler)
+//        }
+//        "/:slug/one" {
+//            get {
+//                println("/slug/one")
+//                HTTPResponse.ok("response")
+//            }
+//        }
+//        "/:another/two" {
+//            get {
+//                println("/another/two")
+//                HTTPResponse.ok()
+//            }
+//        }
+//        "/api/good/:id" {
+//            get { request ->
+//                HTTPResponse.ok(request.matches["id"]!!)
+//            }
+//        }
+//    }
+
     val router = Router {
-        "/api" {
-            get(handler)
+        "/hello" {
+            get { HTTPResponse.ok("GET /hello") }
+            post { HTTPResponse.ok("POST /hello") }
         }
-        "/api/:id" {
-            get(handler)
-        }
-        "/:slug/one" {
-            get {
-                println("/slug/one")
-                HTTPResponse.ok("response")
+        "/hello/world" {
+            put { HTTPResponse.ok("PUT /hello/world") }
+            default {
+                HTTPResponse(
+                    statusCode = 500,
+                    headers = Headers().apply { add("my-header", "my value") },
+                    body = "/hello/world"
+                )
             }
         }
-        "/:another/two" {
-            get {
-                println("/another/two")
-                HTTPResponse.ok()
-            }
+        "/world" {
+            delete { HTTPResponse.ok("DELETE /world") }
+            custom("CUSTOM") { HTTPResponse.ok("CUSTOM /world") }
         }
-        "/api/good/:id" {
-            get { request ->
-                HTTPResponse.ok(request.matches["id"]!!)
-            }
+        "/" {
+            get { HTTPResponse.ok("/") }
         }
     }
 
@@ -220,4 +303,9 @@ fun main() {
     server.createContext("/", router)
     server.start()
 
+    runBlocking {
+        HttpClient(CIO).use { client ->
+            println(client.get<String>("http://localhost:4499/hello"))
+        }
+    }
 }
