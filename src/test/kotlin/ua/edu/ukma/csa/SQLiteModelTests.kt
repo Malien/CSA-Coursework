@@ -1,5 +1,10 @@
 package ua.edu.ukma.csa
 
+import arrow.core.Left
+import arrow.core.Right
+import arrow.core.extensions.list.functor.mapConst
+import com.zaxxer.hikari.HikariDataSource
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
@@ -19,6 +24,8 @@ class SQLiteModelTests {
     private lateinit var cosmetics: Group
     private lateinit var diary: Group
 
+    private val source: HikariDataSource = HikariDataSource()
+
 
     @BeforeEach
     fun populate() {
@@ -35,16 +42,23 @@ class SQLiteModelTests {
 
     }
 
+    @AfterAll
+    fun closeDB() {
+        model.close()
+    }
+
     @Test
     fun addProductCheck() {
         val lego = model.addProduct(name = "Ninjago", count = -5, price = -1.3)
-        assertLeftType<ModelException.ProductCanNotHaveThisCount>(lego)
+        assertLeftType<ModelException>(lego)
     }
 
     @Test
     fun removeProduct() {
         val deleteProduct = model.removeProduct(conditioner.id)
         assertRight(Unit, deleteProduct)
+        val getDeletedProduct = model.getProduct(conditioner.id)
+        assertLeftType<ModelException.ProductDoesNotExist>(getDeletedProduct)
     }
 
     @Test
@@ -67,9 +81,14 @@ class SQLiteModelTests {
     }
 
     @Test
+    fun getProduct() {
+        val getProduct = model.getProduct(biscuit.id)
+        assertRight(biscuit, getProduct)
+    }
+
+    @Test
     fun getProductCheck() {
-        val lego: Product? = null
-        val getProduct = model.getProduct(lego!!.id)
+        val getProduct = model.getProduct(ProductID.UNSET)
         assertLeftType<ModelException.ProductDoesNotExist>(getProduct)
     }
 
@@ -109,6 +128,9 @@ class SQLiteModelTests {
     fun setPriceValidate() {
         val newPrice = model.setPrice(biscuit.id, 15.6)
         assertRight(Unit, newPrice)
+        val getProduct = model.getProduct(biscuit.id)
+        assertRight(15.6, getProduct.map { it.price })
+
     }
 
     @Test
@@ -143,12 +165,4 @@ class SQLiteModelTests {
     fun addQuantityOfProductInvalidate() {
         assertLeftType<ModelException.ProductCanNotHaveThisCount>(model.addQuantityOfProduct(biscuit.id, -50))
     }
-
-    @Test
-    fun clear() {
-        val clear = model.clear()
-        assertRight(Unit, clear)
-    }
-
-
 }
