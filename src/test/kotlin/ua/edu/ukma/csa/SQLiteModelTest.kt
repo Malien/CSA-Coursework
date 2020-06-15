@@ -77,6 +77,7 @@ class SQLiteModelTest {
     fun assignGroup() {
         model.assignGroup(biscuit.id, cosmetics.id).handleWithThrow()
         assertRight(true, model.getProduct(biscuit.id).map { it.groups }.map { cosmetics.id in it })
+        assertLeftType<ModelException.ProductAlreadyInGroup>(model.assignGroup(biscuit.id, cosmetics.id))
         assertLeftType<ModelException.GroupDoesNotExist>(model.assignGroup(biscuit.id, GroupID.UNSET))
     }
 

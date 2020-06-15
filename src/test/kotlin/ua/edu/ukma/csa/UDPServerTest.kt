@@ -90,7 +90,7 @@ class UDPServerTest {
         val responseCRC = UDPPacket.from(responseDatagram)
             .map { ByteBuffer.wrap(it.chunk, it.chunkOffset, it.chunkLength) }
             .map { it.long }
-        assertRight(crc, responseCRC)
+       assertRight(crc, responseCRC)
     }
 
     @Test

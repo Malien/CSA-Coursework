@@ -3,7 +3,6 @@ package ua.edu.ukma.csa.model
 import java.sql.SQLException
 
 sealed class ModelException(msg: String) : RuntimeException(msg) {
-    class ProductAlreadyExists(id: ProductID) : ModelException("Product with id $id already exists")
     class ProductDoesNotExist(id: ProductID) : ModelException("Product with id $id does not exist")
     class ProductCanNotHaveThisPrice(price: Double) :
         ModelException("Product can`t have price of $price")
@@ -11,7 +10,7 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
     class ProductCanNotHaveThisCount(count: Int) :
         ModelException("Product can`t have count of $count")
 
-    class ProductAlreadyInGroup(product: Product, group: GroupID) :
+    class ProductAlreadyInGroup(product: ProductID, group: GroupID) :
         ModelException("Product $product is already in group $group")
 
     class GroupAlreadyExists(group: GroupID) :
@@ -28,9 +27,5 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
     data class SQL(val error: SQLException) : ModelException("SQL exception raised: $error") {
         override fun toString() = "ModelException.SQL($error)"
     }
-
-    // TODO: Remove this one
-    class NotImplemented() :
-        ModelException("Not implemented")
 }
 

@@ -168,8 +168,8 @@ sealed class TCPClient(private val serverAddress: SocketAddress, private val use
 
     class Encrypted(serverAddress: SocketAddress, userID: UserID, private val key: Key, private val cipher: Cipher) :
         TCPClient(serverAddress, userID) {
-        override fun decode(stream: InputStream) = Packet.sequenceFrom<Message.Encrypted>(stream)
-            .map {
+        override fun decode(stream: InputStream) =
+            Packet.sequenceFrom<Message.Encrypted>(stream).map {
                 it.map { packet ->
                     Packet(
                         clientID = packet.clientID,
