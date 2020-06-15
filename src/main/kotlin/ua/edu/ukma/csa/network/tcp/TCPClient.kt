@@ -117,15 +117,15 @@ sealed class TCPClient(private val serverAddress: SocketAddress, private val use
         responseDeserializer: DeserializationStrategy<Res>,
         resendBehind: Boolean,
         retries: UInt
-    ): Either<FetchException, Res> = withContext(Dispatchers.IO) {
+    ): Fetch<Res> = withContext(Dispatchers.IO) {
         val message = request.toMessage(requestSerializer, userID)
             .mapLeft { FetchException.Serialization(it) }
             .unwrap { return@withContext it }
         val id = packetID.incrementAndGet().toULong()
         val packet = Packet(clientID = UDPClient.CLIENT_ID, message = message, packetID = id)
-        return@withContext suspendCoroutine<Either<FetchException, Res>> { continuation ->
+        return@withContext suspendCoroutine<Fetch<Res>> { continuation ->
             handlers[id] = Handler(
-                continuation as Continuation<Either<FetchException, Response>>,
+                continuation as Continuation<Fetch<Response>>,
                 packet,
                 responseDeserializer as DeserializationStrategy<Response>,
                 resendBehind,

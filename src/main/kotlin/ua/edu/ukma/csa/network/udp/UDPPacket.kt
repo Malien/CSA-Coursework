@@ -44,7 +44,7 @@ data class UDPPacket(
     /**
      * Size of the serialized packet
      */
-    val size get() = PACKET_HEADER + chunk.size.toUInt()
+    val size get() = PACKET_HEADER + chunkLength.toUInt()
 
     /**
      * Serialized packet ready to be transferred through the network
