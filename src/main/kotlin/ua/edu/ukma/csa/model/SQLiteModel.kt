@@ -4,6 +4,7 @@ import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
 import arrow.core.flatMap
+import arrow.syntax.function.partially1
 import arrow.syntax.function.partially2
 import com.zaxxer.hikari.HikariDataSource
 import ua.edu.ukma.csa.kotlinx.arrow.core.bind
@@ -13,9 +14,7 @@ import ua.edu.ukma.csa.kotlinx.java.sql.iterator
 import ua.edu.ukma.csa.kotlinx.java.sql.transaction
 import ua.edu.ukma.csa.kotlinx.transformNotNull
 import java.io.Closeable
-import java.sql.PreparedStatement
-import java.sql.SQLException
-import java.sql.Statement
+import java.sql.*
 
 /**
  * Represents a SQLite data-source.
@@ -98,16 +97,8 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         connection.prepareStatement("SELECT id, name, count, price FROM product WHERE id = ?").use { statement ->
             statement.setInt(1, id.id)
             val result = statement.executeQuery()
-            if (result.next()) {
-                Right(
-                    Product(
-                        id = ProductID(result.getInt("id")),
-                        name = result.getString("name"),
-                        count = result.getInt("count"),
-                        price = result.getDouble("price")
-                    )
-                )
-            } else Left(ModelException.ProductDoesNotExist(id))
+            if (result.next()) Right(productFromRow(connection, result))
+            else Left(ModelException.ProductDoesNotExist(id))
         }
     }
 
@@ -160,21 +151,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
 
                     val result = statement.executeQuery()
 
-                    val products = result.iterator().asSequence().map { row ->
-                        val id = row.getInt("id")
-                        val name = row.getString("name")
-                        val count = row.getInt("count")
-                        val price = row.getDouble("price")
-                        val groups = connection.createStatement().use { groupStatement ->
-                            groupStatement.executeQuery(
-                                "SELECT group_id FROM product_product_group WHERE product_id = $id"
-                            ).iterator().asSequence()
-                                .map { it.getInt("group_id") }
-                                .map { GroupID(it) }
-                                .toSet()
-                        }
-                        Product(ProductID(id), name, count, price, groups)
-                    }
+                    val products = result.iterator().asSequence().map(::productFromRow.partially1(connection))
 
                     Right(products.toList())
                 }
@@ -385,6 +362,8 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
                         ).use { statement ->
                             statement.setInt(1, productID.id)
                             statement.setInt(2, groupID.id)
+                            statement.executeUpdate()
+                            Unit
                         }
                     }
             }.mapLeft { ModelException.SQL(it) }.flatMap { it }
@@ -439,6 +418,22 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
                 statement.setInt(idx, amount)
                 1
             } else 0
+
+        private fun productFromRow(connection: Connection, row: ResultSet): Product {
+            val id = row.getInt("id")
+            val name = row.getString("name")
+            val count = row.getInt("count")
+            val price = row.getDouble("price")
+            val groups = connection.createStatement().use { groupStatement ->
+                groupStatement.executeQuery(
+                    "SELECT group_id FROM product_product_group WHERE product_id = $id"
+                ).iterator().asSequence()
+                    .map { it.getInt("group_id") }
+                    .map { GroupID(it) }
+                    .toSet()
+            }
+            return Product(ProductID(id), name, count, price, groups)
+        }
 
     }
 }

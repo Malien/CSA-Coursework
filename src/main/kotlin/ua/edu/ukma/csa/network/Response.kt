@@ -35,9 +35,6 @@ sealed class Response() {
     data class ProductList(val products: List<ua.edu.ukma.csa.model.Product>) : Response()
 
     @Serializable
-    data class Quantity(val id: ProductID, val count: Int) : Response()
-
-    @Serializable
     data class Price(val id: ProductID, val count: Double) : Response()
 
 }

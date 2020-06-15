@@ -39,10 +39,10 @@ inline fun <reified Req : Request, reified Res : Response> processMessage(
 fun ModelSource.handleMessage(message: Message.Decrypted): Message.Decrypted = when (message.type) {
     OK, ERR, PACKET_BEHIND -> Left(RuntimeException("Cannot process request of type ${message.type}"))
     INCLUDE -> processMessage(message) { request: Request.Include ->
-        addQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = request.count) }
+        addQuantityOfProduct(request.id, request.count).map { Response.Ok }
     }
     EXCLUDE -> processMessage(message) { request: Request.Exclude ->
-        deleteQuantityOfProduct(request.id, request.count).map { Response.Quantity(id = request.id, count = request.count) }
+        deleteQuantityOfProduct(request.id, request.count).map { Response.Ok }
     }
     ADD_GROUP -> processMessage(message) { request: Request.AddGroup ->
         addGroup(request.name).map { Response.Group(it) }

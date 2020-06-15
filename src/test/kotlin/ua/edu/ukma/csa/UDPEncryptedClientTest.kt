@@ -2,7 +2,6 @@ package ua.edu.ukma.csa
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -58,7 +57,7 @@ class UDPEncryptedClientTest {
     @BeforeEach
     fun populate() {
         model.clear()
-        model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
+        biscuit = model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
     }
 
     @AfterAll
@@ -73,7 +72,8 @@ class UDPEncryptedClientTest {
         runBlocking {
             val (group) = client.addGroup("name").handleWithThrow()
             client.assignGroup(biscuit.id, group.id)
-            assertTrue(group.id in model.getProduct(biscuit.id).handleWithThrow().groups)
+            val product = model.getProduct(biscuit.id)
+            assertRight(true, product.map { group.id in it.groups })
         }
     }
 
@@ -81,8 +81,7 @@ class UDPEncryptedClientTest {
     fun `should get count`() {
         runBlocking {
             val response = client.getProduct(biscuit.id)
-            assertRight(10, response.map { it.count })
-            assertRight(biscuit.id, response.map { it.id })
+            assertRight(biscuit, response.map { it.product })
         }
     }
 
@@ -96,7 +95,8 @@ class UDPEncryptedClientTest {
             val (group) = client.addGroup(randomString).handleWithThrow()
             val res = client.assignGroup(biscuit.id, group.id)
             assertRight(MessageType.OK, res.map { it.type })
-            assertTrue(group.id in model.getProduct(biscuit.id).handleWithThrow().groups)
+            val product = model.getProduct(biscuit.id)
+            assertRight(true, product.map { group.id in it.groups })
         }
     }
 

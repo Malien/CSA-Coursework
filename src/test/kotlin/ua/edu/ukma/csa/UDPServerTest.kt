@@ -1,5 +1,6 @@
 package ua.edu.ukma.csa
 
+import com.github.snksoft.crc.CRC
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -8,78 +9,77 @@ import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.kotlinx.peek
-import ua.edu.ukma.csa.model.ProductID
-import ua.edu.ukma.csa.model.SQLiteModel
-import ua.edu.ukma.csa.network.*
-import ua.edu.ukma.csa.network.udp.*
+import ua.edu.ukma.csa.network.udp.UDPPacket
+import ua.edu.ukma.csa.network.udp.UDPServer
+import ua.edu.ukma.csa.network.udp.sendUDPPackets
+import ua.edu.ukma.csa.network.udp.splitData
 import java.net.*
+import java.nio.ByteBuffer
 import java.time.Duration
 import kotlin.concurrent.thread
-import kotlin.random.nextInt
+import kotlin.random.Random
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@ExperimentalUnsignedTypes
 class UDPServerTest {
 
-    private val model = SQLiteModel(":memory:")
     private val server = UDPServer(0)
-    private val userID = UserID.assign()
-    private lateinit var socket: DatagramSocket
+    private val socket = DatagramSocket(0)
 
     init {
-        thread { server.serve(model) }
+        thread { server.serveEcho() }
     }
 
     @AfterAll
     fun close() {
         server.close()
-        model.close()
     }
 
     @BeforeEach
     fun initSocket() {
-        socket = DatagramSocket(0)
         socket.soTimeout = 1000
     }
 
     @Test
     fun `should transfer packet`() {
-        val request = Request.GetProduct(ProductID.UNSET).toMessage(userID).handleWithThrow()
-        val packet = Packet(clientID = 2u, message = request, packetID = 3u)
-        socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
+        val request = Random.nextBytes(24)
+        val crc = CRC.calculateCRC(CRC.Parameters.CRC16, request)
+        socket.sendUDPPackets(
+            request,
+            packetID = 0u,
+            to = InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort)
+        )
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
-        val (_, _, _, chunk, chunkLength, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
-        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkLength)
-        assertRight(MessageType.ERR, responsePacket.map { it.message.type })
+        val responseCRC = UDPPacket.from(responseDatagram)
+            .map { ByteBuffer.wrap(it.chunk, it.chunkOffset, it.chunkLength) }
+            .map { it.long }
+        assertRight(crc, responseCRC)
     }
 
     @Test
     fun `should transfer really long packet`() {
-        val randomString = generateSequence { kotlin.random.Random.nextInt(32..126) }
-            .take(2048)
-            .map { it.toChar() }
-            .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(userID).handleWithThrow()
-        val packet = Packet(clientID = 2u, message = request, packetID = 4u)
-        socket.send(packet, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort))
+        val request = Random.nextBytes(2048)
+        val crc = CRC.calculateCRC(CRC.Parameters.CRC16, request)
+        socket.sendUDPPackets(
+            request,
+            packetID = 0u,
+            to = InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort)
+        )
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
-        val (_, _, _, chunk, chunkLength, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
-        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkLength)
-        assertRight(MessageType.OK, responsePacket.map { it.message.type })
+        val responseCRC = UDPPacket.from(responseDatagram)
+            .map { ByteBuffer.wrap(it.chunk, it.chunkOffset, it.chunkLength) }
+            .map { it.long }
+        assertRight(crc, responseCRC)
     }
 
     @Test
     fun `message should be received out of order`() {
-        val randomString = generateSequence { kotlin.random.Random.nextInt(32..126) }
-            .take(2048)
-            .map { it.toChar() }
-            .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(userID).handleWithThrow()
-        val packet = Packet(clientID = 2u, message = request, packetID = 4u)
-        splitData(packet.data, packetID = packet.packetID.toULong())
+        val request = Random.nextBytes(2048)
+        val crc = CRC.calculateCRC(CRC.Parameters.CRC16, request)
+        splitData(request, packetID = 0u)
             .handleWithThrow()
+            .toList()
             .shuffled()
             .asSequence()
             .map { it.data }
@@ -87,22 +87,17 @@ class UDPServerTest {
             .forEach(socket::send)
         val responseDatagram = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(responseDatagram)
-        val (_, _, _, chunk, chunkLength, chunkOffset) = UDPPacket.from(responseDatagram).handleWithThrow()
-        val responsePacket = Packet.decode<Message.Decrypted>(chunk, chunkOffset, chunkLength)
-        assertRight(MessageType.OK, responsePacket.map { it.message.type })
+        val responseCRC = UDPPacket.from(responseDatagram)
+            .map { ByteBuffer.wrap(it.chunk, it.chunkOffset, it.chunkLength) }
+            .map { it.long }
+        assertRight(crc, responseCRC)
     }
 
     @Test
     fun `should timeout`() {
-        val randomString = generateSequence { kotlin.random.Random.nextInt(32..126) }
-            .take(2048)
-            .map { it.toChar() }
-            .joinToString(separator = "")
-        val request = Request.AddGroup(randomString).toMessage(userID).handleWithThrow()
-        val packet = Packet(clientID = 2u, message = request, packetID = 4u)
-        splitData(packet.data, packetID = packet.packetID.toULong())
+        val request = Random.nextBytes(2048)
+        splitData(request, packetID = 0u)
             .handleWithThrow()
-            .asSequence()
             .map { it.data }
             .map { DatagramPacket(it, it.size, InetSocketAddress(InetAddress.getLocalHost(), server.socket.localPort)) }
             .peek { Thread.sleep((UDPServer.WINDOW_TIMEOUT + Duration.ofSeconds(10)).toMillis()) }
@@ -115,6 +110,15 @@ class UDPServerTest {
             timedout = true
         }
         assertTrue(timedout)
+    }
+
+    companion object {
+        private fun UDPServer.serveEcho() = serve { request ->
+            val buffer = ByteBuffer.allocate(8)
+            val crc = CRC.calculateCRC(CRC.Parameters.CRC16, request.data)
+            buffer.putLong(crc)
+            socket.sendUDPPackets(buffer.array(), request.packetCount, request.address)
+        }
     }
 
 }

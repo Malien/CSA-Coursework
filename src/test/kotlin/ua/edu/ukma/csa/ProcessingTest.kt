@@ -95,7 +95,7 @@ class ProcessingTest {
                 if (packet.message.type == MessageType.OK) Right(packet.message)
                 else Left(assertEquals(MessageType.OK, packet.message.type))
             }
-            .flatMap { ProtoBuf.fload(Response.Quantity.serializer(), it.message) }
+            .flatMap { ProtoBuf.fload(Response.Product.serializer(), it.message) }
         assertRight(Response.Product(biscuit), response)
     }
 
@@ -111,7 +111,7 @@ class ProcessingTest {
                 else Left(assertEquals(MessageType.OK, packet.message.type))
             }
             .map { encryptedMessage -> encryptedMessage.decrypted(key, cipher) }
-            .flatMap { ProtoBuf.fload(Response.Quantity.serializer(), it.message) }
+            .flatMap { ProtoBuf.fload(Response.Product.serializer(), it.message) }
         assertRight(Response.Product(biscuit), response)
     }
 

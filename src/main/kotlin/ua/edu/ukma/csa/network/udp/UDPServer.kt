@@ -91,7 +91,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
 
                     if (window == null) {
                         if (packet.sequenceID > packet.window) continue@loop // TODO: send error message back
-                        when(packet.window.toInt()) {
+                        when (packet.window.toInt()) {
                             0 -> continue@loop
                             1 -> {
                                 yield(
@@ -128,7 +128,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                         }
                         window[packet.sequenceID] = packet
                         if (window.received == packet.window) {
-                            val combined = ByteArray(window.packets.sumBy { it!!.size.toInt() })
+                            val combined = ByteArray(window.packets.sumBy { it!!.chunkLength })
                             window.packets.fold(0) { written, blobPacket ->
                                 blobPacket!!.chunk.copyInto(combined, destinationOffset = written)
                                 written + blobPacket.chunk.size
@@ -223,7 +223,7 @@ fun UDPServer.serve(model: ModelSource) = serve { (data, address, packetCount) -
  * will run in a separate thread and every unintended operation outside of this function will lead to
  * undefined behaviour.
  * @param key key which will be used to decrypt message
- * @param cipher cipher which will be used to decrypt message. Takes ownership of cipher
+ * @param cipherFactory function that produces ciphers to be used by different threads
  * @return newly created thread which handles the processing
  */
 fun UDPServer.serve(model: ModelSource, key: Key, cipherFactory: () -> Cipher) = serve { (data, address, packetCount) ->
