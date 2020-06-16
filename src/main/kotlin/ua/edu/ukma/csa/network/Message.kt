@@ -20,7 +20,7 @@ import javax.crypto.spec.IvParameterSpec
  */
 sealed class Message(
     val type: MessageType,
-    val userID: UInt,
+    val userID: UserID,
     val message: ByteArray = ByteArray(0)
 ) {
     /**
@@ -34,7 +34,7 @@ sealed class Message(
     val data: ByteArray
         get() = ByteBuffer.allocate(size)
             .putInt(type.typeID)
-            .putInt(userID)
+            .putInt(userID.id)
             .put(message)
             .array()
 
@@ -57,7 +57,7 @@ sealed class Message(
 
     override fun hashCode(): Int {
         var result = type.hashCode()
-        result = 31 * result + userID.toInt()
+        result = 31 * result + userID.hashCode()
         result = 31 * result + (message.contentHashCode())
         return result
     }
@@ -71,7 +71,7 @@ sealed class Message(
      */
     class Decrypted(
         type: MessageType,
-        userID: UInt,
+        userID: UserID,
         message: ByteArray = ByteArray(0)
     ) : Message(type, userID, message) {
 
@@ -114,7 +114,7 @@ sealed class Message(
      */
     class Encrypted(
         type: MessageType,
-        userID: UInt,
+        userID: UserID,
         encryptedMessage: ByteArray
     ) : Message(type, userID, encryptedMessage) {
 
@@ -123,7 +123,7 @@ sealed class Message(
          */
         constructor(
             type: MessageType,
-            userID: UInt,
+            userID: UserID,
             message: ByteArray = ByteArray(0),
             key: Key,
             cipher: Cipher,
@@ -204,7 +204,7 @@ sealed class Message(
             val type = MessageType.fromID(typeID).unwrap {
                 return@decode Left(PacketException.InvalidType(typeID))
             }
-            val userID = buffer.uInt
+            val userID = UserID(buffer.uInt)
             val message = ByteArray(length - 8)
             buffer.get(message)
 

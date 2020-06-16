@@ -5,9 +5,8 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.serializer
-import ua.edu.ukma.csa.kotlinx.java.util.UUIDSerializer
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
-import java.util.*
+import ua.edu.ukma.csa.model.ProductID
 
 @Serializable
 sealed class Response() {
@@ -27,17 +26,23 @@ sealed class Response() {
     }
 
     @Serializable
-    data class Quantity(@Serializable(with = UUIDSerializer::class) val id: UUID, val count: Int) : Response()
+    data class Product(val product: ua.edu.ukma.csa.model.Product) : Response()
 
     @Serializable
-    data class Price(@Serializable(with = UUIDSerializer::class) val id: UUID, val count: Double) : Response()
+    data class Group(val group: ua.edu.ukma.csa.model.Group) : Response()
+
+    @Serializable
+    data class ProductList(val products: List<ua.edu.ukma.csa.model.Product>) : Response()
+
+    @Serializable
+    data class Price(val id: ProductID, val count: Double) : Response()
 
 }
 
-inline fun <reified T : Response> T.toMessage(userID: UInt = 0u) =
+inline fun <reified T : Response> T.toMessage(userID: UserID = UserID.SERVER) =
     serialize().map { Message.Decrypted(type, userID, message = it) }
 
-fun <T : Response> T.toMessage(userID: UInt = 0u, serializer: KSerializer<T>) =
+fun <T : Response> T.toMessage(userID: UserID = UserID.SERVER, serializer: KSerializer<T>) =
     serialize(serializer).map { Message.Decrypted(type, userID, message = it) }
 
 @OptIn(ImplicitReflectionSerializer::class)

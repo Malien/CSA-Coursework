@@ -2,40 +2,61 @@ package ua.edu.ukma.csa.network
 
 import kotlinx.serialization.*
 import kotlinx.serialization.protobuf.ProtoBuf
-import ua.edu.ukma.csa.kotlinx.java.util.UUIDSerializer
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
-import java.util.*
+import ua.edu.ukma.csa.model.Criteria
+import ua.edu.ukma.csa.model.GroupID
+import ua.edu.ukma.csa.model.Orderings
+import ua.edu.ukma.csa.model.ProductID
 
 @Serializable
 sealed class Request(@Transient val messageType: MessageType = MessageType.ERR) {
     @Serializable
-    data class GetQuantity(@Serializable(with = UUIDSerializer::class) val id: UUID) : Request(MessageType.GET_COUNT)
+    data class AddProduct(
+        val name: String,
+        var count: Int = 0,
+        var price: Double,
+        val groups: Set<GroupID> = emptySet()
+    ) : Request(MessageType.ADD_PRODUCT)
 
     @Serializable
-    data class Include(@Serializable(with = UUIDSerializer::class) val id: UUID, val count: Int) :
+    data class GetProduct(val id: ProductID) : Request(MessageType.GET_PRODUCT)
+
+    @Serializable
+    data class GetProductList(
+        val criteria: Criteria = Criteria(),
+        val ordering: Orderings = emptyList(),
+        val offset: Int? = null,
+        val amount: Int? = null
+    ) : Request(MessageType.GET_PRODUCT_LIST)
+
+    @Serializable
+    data class RemoveProduct(val id: ProductID) : Request(MessageType.REMOVE)
+
+    @Serializable
+    data class Include(val id: ProductID, val count: Int) :
         Request(MessageType.INCLUDE)
 
     @Serializable
-    data class Exclude(@Serializable(with = UUIDSerializer::class) val id: UUID, val count: Int) :
+    data class Exclude(val id: ProductID, val count: Int) :
         Request(MessageType.EXCLUDE)
 
     @Serializable
     data class AddGroup(val name: String) : Request(MessageType.ADD_GROUP)
 
     @Serializable
-    data class AssignGroup(@Serializable(with = UUIDSerializer::class) val id: UUID, val group: String) :
+    data class AssignGroup(val product: ProductID, val group: GroupID) :
         Request(MessageType.ASSIGN_GROUP)
 
     @Serializable
-    data class SetPrice(@Serializable(with = UUIDSerializer::class) val id: UUID, val price: Double) :
+    data class SetPrice(val id: ProductID, val price: Double) :
         Request(MessageType.SET_PRICE)
 
 }
 
-inline fun <reified T : Request> T.toMessage(userID: UInt = 0u) =
+inline fun <reified T : Request> T.toMessage(userID: UserID = UserID.SERVER) =
     serialize().map { Message.Decrypted(messageType, userID, message = it) }
 
-fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: UInt = 0u) =
+fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: UserID = UserID.SERVER) =
     serialize(serializer).map { Message.Decrypted(messageType, userID, message = it) }
 
 @OptIn(ImplicitReflectionSerializer::class)

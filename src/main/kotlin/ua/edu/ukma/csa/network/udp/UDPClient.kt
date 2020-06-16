@@ -30,7 +30,7 @@ import kotlin.coroutines.suspendCoroutine
  * Class that handler server communications via UDP protocol. There are two concrete variations: [UDPClient.Decrypted]
  * and [UDPClient.Encrypted]. Each one handles encrypted and decrypted connections respectively.
  */
-sealed class UDPClient(protected val serverAddress: SocketAddress, private val userID: UInt) : Client {
+sealed class UDPClient(protected val serverAddress: SocketAddress, private val userID: UserID) : Client {
     protected val socket = DatagramSocket(0)
 
     init {
@@ -97,159 +97,159 @@ sealed class UDPClient(protected val serverAddress: SocketAddress, private val u
         }
     }
 
-        @Volatile
-        var shouldStop = false
+    @Volatile
+    var shouldStop = false
 
-        private val networkThread = thread(name = "UDP-Client-Thread") {
-            val buffer = ByteArray(UDPPacket.PACKET_SIZE.toInt())
-            val datagram = DatagramPacket(buffer, buffer.size)
+    private val networkThread = thread(name = "UDP-Client-Thread") {
+        val buffer = ByteArray(UDPPacket.PACKET_SIZE.toInt())
+        val datagram = DatagramPacket(buffer, buffer.size)
 
-            loop@ while (true) {
-                try {
-                    if (shouldStop) break@loop
-                    socket.receive(datagram)
-                    if (datagram.socketAddress != serverAddress) continue@loop
-                    val udpPacket = UDPPacket.from(datagram)
-                    if (udpPacket is Either.Right) {
-                        val (packet) = udpPacket
-                        val window = parts[packet.packetID]
+        loop@ while (true) {
+            try {
+                if (shouldStop) break@loop
+                socket.receive(datagram)
+                if (datagram.socketAddress != serverAddress) continue@loop
+                val udpPacket = UDPPacket.from(datagram)
+                if (udpPacket is Either.Right) {
+                    val (packet) = udpPacket
+                    val window = parts[packet.packetID]
 
-                        if (window == null) {
-                            if (packet.window <= packet.sequenceID) continue@loop
-                            when (packet.window.toInt()) {
-                                0 -> continue@loop
-                                1 -> dispatchPacket(
-                                    parsePacket(packet.chunk, packet.chunkOffset, packet.chunkLength)
-                                )
-                                else -> {
-                                    timeout.timeout(packet.packetID, after = WINDOW_TIMEOUT) {
-                                        parts.remove(it)
-                                        retryTimeouts(it)
-                                    }
-
-                                    val newWindow = UDPWindow(packet.window)
-                                    newWindow[packet.sequenceID] = packet
-                                    newWindow.received++
-                                    parts[packet.packetID] = newWindow
-                                }
-                            }
-                        } else {
-                            if (packet.sequenceID > packet.window) continue@loop // TODO: send error message back
-                            if (packet.window != window.count) continue@loop // TODO: send error message back
-                            if (window[packet.sequenceID] == null) {
-                                window.received++
-                            }
-                            window[packet.sequenceID] = packet
-                            if (window.received == packet.window) {
-                                val combined = ByteArray(window.packets.sumBy { it!!.size.toInt() })
-                                window.packets.fold(0) { written, blobPacket ->
-                                    blobPacket!!.chunk.copyInto(combined, destinationOffset = written)
-                                    written + blobPacket.chunk.size
-                                }
-                                parts.remove(packet.packetID)
-                                dispatchPacket(parsePacket(combined))
-                            } else {
+                    if (window == null) {
+                        if (packet.window <= packet.sequenceID) continue@loop
+                        when (packet.window.toInt()) {
+                            0 -> continue@loop
+                            1 -> dispatchPacket(
+                                parsePacket(packet.chunk, packet.chunkOffset, packet.chunkLength)
+                            )
+                            else -> {
                                 timeout.timeout(packet.packetID, after = WINDOW_TIMEOUT) {
                                     parts.remove(it)
                                     retryTimeouts(it)
                                 }
+
+                                val newWindow = UDPWindow(packet.window)
+                                newWindow[packet.sequenceID] = packet
+                                newWindow.received++
+                                parts[packet.packetID] = newWindow
+                            }
+                        }
+                    } else {
+                        if (packet.sequenceID > packet.window) continue@loop // TODO: send error message back
+                        if (packet.window != window.count) continue@loop // TODO: send error message back
+                        if (window[packet.sequenceID] == null) {
+                            window.received++
+                        }
+                        window[packet.sequenceID] = packet
+                        if (window.received == packet.window) {
+                            val combined = ByteArray(window.packets.sumBy { it!!.size.toInt() })
+                            window.packets.fold(0) { written, blobPacket ->
+                                blobPacket!!.chunk.copyInto(combined, destinationOffset = written)
+                                written + blobPacket.chunk.size
+                            }
+                            parts.remove(packet.packetID)
+                            dispatchPacket(parsePacket(combined))
+                        } else {
+                            timeout.timeout(packet.packetID, after = WINDOW_TIMEOUT) {
+                                parts.remove(it)
+                                retryTimeouts(it)
                             }
                         }
                     }
-                } catch (ignore: SocketTimeoutException) {
-                } catch (e: IOException) {
-                    shouldStop = true
-                    println(e)
                 }
+            } catch (ignore: SocketTimeoutException) {
+            } catch (e: IOException) {
+                shouldStop = true
+                println(e)
             }
         }
+    }
 
-        @Suppress("UNCHECKED_CAST")
-        override suspend fun <Req : Request, Res : Response> fetch(
-            request: Req,
-            requestSerializer: SerializationStrategy<Req>,
-            responseDeserializer: DeserializationStrategy<Res>,
-            resendBehind: Boolean,
-            retries: UInt
-        ): Either<FetchException, Res> = withContext(Dispatchers.IO) {
-            val message = request.toMessage(requestSerializer, userID)
-                .mapLeft { FetchException.Serialization(it) }
-                .unwrap { return@withContext it }
-            val id = packetID.incrementAndGet().toULong()
-            val packet = Packet(clientID = CLIENT_ID, message = message, packetID = id)
-            return@withContext suspendCoroutine<Either<FetchException, Res>> { continuation ->
-                handlers[id] = Handler(
-                    continuation as Continuation<Either<FetchException, Response>>,
-                    packet,
-                    responseDeserializer as DeserializationStrategy<Response>,
-                    resendBehind,
-                    retries
-                )
-                send(packet)
-                timeout.timeout(id, after = PACKET_TIMEOUT, handler = ::retryTimeouts)
-            }
-        }
-
-        private fun retryTimeouts(id: ULong) {
-            val handler = handlers[id] ?: return
-            if (handler.retries < handler.attempts) {
-                handlers[id] = handler.copy(attempts = handler.attempts + 1u)
-                send(handler.packet)
-                timeout.timeout(id, after = PACKET_TIMEOUT, handler = ::retryTimeouts)
-            } else {
-                handlers.remove(id)
-                handler.continuation.resume(Left(FetchException.Timeout(id, handler.attempts)))
-            }
-        }
-
-        override fun close() {
-            shouldStop = true
-            timeout.close()
-            networkThread.join()
-            socket.close()
-        }
-
-        class Decrypted(serverAddress: SocketAddress, userID: UInt) : UDPClient(serverAddress, userID) {
-            constructor(address: InetAddress, port: Int, userID: UInt) : this(InetSocketAddress(address, port), userID)
-
-            override fun parsePacket(
-                data: ByteArray,
-                offset: Int,
-                length: Int
-            ): Either<PacketException, Packet<Message.Decrypted>> = Packet.decode(data, offset, length)
-
-            override fun send(packet: Packet<Message.Decrypted>) = socket.send(packet, to = serverAddress)
-        }
-
-        class Encrypted(serverAddress: SocketAddress, userID: UInt, private val key: Key, private val cipher: Cipher) :
-            UDPClient(serverAddress, userID) {
-            constructor(address: InetAddress, port: Int, userID: UInt, key: Key, cipher: Cipher) : this(
-                InetSocketAddress(address, port),
-                userID,
-                key,
-                cipher
+    @Suppress("UNCHECKED_CAST")
+    override suspend fun <Req : Request, Res : Response> fetch(
+        request: Req,
+        requestSerializer: SerializationStrategy<Req>,
+        responseDeserializer: DeserializationStrategy<Res>,
+        resendBehind: Boolean,
+        retries: UInt
+    ): Fetch<Res> = withContext(Dispatchers.IO) {
+        val message = request.toMessage(requestSerializer, userID)
+            .mapLeft { FetchException.Serialization(it) }
+            .unwrap { return@withContext it }
+        val id = packetID.incrementAndGet().toULong()
+        val packet = Packet(clientID = CLIENT_ID, message = message, packetID = id)
+        return@withContext suspendCoroutine<Fetch<Res>> { continuation ->
+            handlers[id] = Handler(
+                continuation as Continuation<Fetch<Response>>,
+                packet,
+                responseDeserializer as DeserializationStrategy<Response>,
+                resendBehind,
+                retries
             )
-
-            override fun parsePacket(
-                data: ByteArray,
-                offset: Int,
-                length: Int
-            ): Either<PacketException, Packet<Message.Decrypted>> =
-                Packet.decode<Message.Encrypted>(data, offset, length).map {
-                    Packet(clientID = it.clientID, message = it.message.decrypted(key, cipher), packetID = it.packetID)
-                }
-
-            override fun send(packet: Packet<Message.Decrypted>) =
-                socket.send(
-                    Packet(
-                        clientID = packet.clientID,
-                        packetID = packet.packetID,
-                        message = packet.message.encrypted(key, cipher)
-                    ), to = serverAddress
-                )
+            send(packet)
+            timeout.timeout(id, after = PACKET_TIMEOUT, handler = ::retryTimeouts)
         }
+    }
 
-        companion object {
+    private fun retryTimeouts(id: ULong) {
+        val handler = handlers[id] ?: return
+        if (handler.retries < handler.attempts) {
+            handlers[id] = handler.copy(attempts = handler.attempts + 1u)
+            send(handler.packet)
+            timeout.timeout(id, after = PACKET_TIMEOUT, handler = ::retryTimeouts)
+        } else {
+            handlers.remove(id)
+            handler.continuation.resume(Left(FetchException.Timeout(id, handler.attempts)))
+        }
+    }
+
+    override fun close() {
+        shouldStop = true
+        timeout.close()
+        networkThread.join()
+        socket.close()
+    }
+
+    class Decrypted(serverAddress: SocketAddress, userID: UserID) : UDPClient(serverAddress, userID) {
+        constructor(address: InetAddress, port: Int, userID: UserID) : this(InetSocketAddress(address, port), userID)
+
+        override fun parsePacket(
+            data: ByteArray,
+            offset: Int,
+            length: Int
+        ): Either<PacketException, Packet<Message.Decrypted>> = Packet.decode(data, offset, length)
+
+        override fun send(packet: Packet<Message.Decrypted>) = socket.send(packet, to = serverAddress)
+    }
+
+    class Encrypted(serverAddress: SocketAddress, userID: UserID, private val key: Key, private val cipher: Cipher) :
+        UDPClient(serverAddress, userID) {
+        constructor(address: InetAddress, port: Int, userID: UserID, key: Key, cipher: Cipher) : this(
+            InetSocketAddress(address, port),
+            userID,
+            key,
+            cipher
+        )
+
+        override fun parsePacket(
+            data: ByteArray,
+            offset: Int,
+            length: Int
+        ): Either<PacketException, Packet<Message.Decrypted>> =
+            Packet.decode<Message.Encrypted>(data, offset, length).map {
+                Packet(clientID = it.clientID, message = it.message.decrypted(key, cipher), packetID = it.packetID)
+            }
+
+        override fun send(packet: Packet<Message.Decrypted>) =
+            socket.send(
+                Packet(
+                    clientID = packet.clientID,
+                    packetID = packet.packetID,
+                    message = packet.message.encrypted(key, cipher)
+                ), to = serverAddress
+            )
+    }
+
+    companion object {
         const val CLIENT_ID: UByte = 1u
         private const val TIMEOUT = 1000
         private val WINDOW_TIMEOUT = Duration.ofSeconds(10)

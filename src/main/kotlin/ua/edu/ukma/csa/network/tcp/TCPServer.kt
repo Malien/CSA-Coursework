@@ -1,11 +1,13 @@
 package ua.edu.ukma.csa.network.tcp
 
+import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.network.handleStream
 import java.io.Closeable
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.security.Key
 import javax.crypto.Cipher
@@ -31,6 +33,7 @@ class TCPServer(
                 if (shouldStop) break
                 val socket = serverSocket.accept()
                 handler(socket.getInputStream(), socket.getOutputStream())
+            } catch (ignore: SocketException) {
             } catch (ignore: SocketTimeoutException) {
             }
         }
@@ -47,10 +50,10 @@ class TCPServer(
 
 }
 
-fun TCPServer.serve() = serve { inputStream, outputStream ->
-    thread { handleStream(inputStream, outputStream) }
+fun TCPServer.serve(model: ModelSource) = serve { inputStream, outputStream ->
+    thread { model.handleStream(inputStream, outputStream) }
 }
 
-fun TCPServer.serve(key: Key, cipher: Cipher) = serve { inputStream, outputStream ->
-    thread { handleStream(inputStream, outputStream, key, cipher) }
+fun TCPServer.serve(model: ModelSource, key: Key, cipherFactory: () -> Cipher) = serve { inputStream, outputStream ->
+    thread { model.handleStream(inputStream, outputStream, key, cipherFactory()) }
 }

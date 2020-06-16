@@ -1,23 +1,31 @@
 package ua.edu.ukma.csa.model
 
-import java.util.*
+import java.sql.SQLException
 
 sealed class ModelException(msg: String) : RuntimeException(msg) {
-    class ProductAlreadyExists(id: UUID) : ModelException("Product with id $id already exists")
-    class ProductDoesNotExist(id: UUID) : ModelException("Product with id $id does not exist")
-    class ProductCanNotHaveThisPrice(id: UUID, price: Double) :
-        ModelException("Product with id $id can`t have this price $price")
+    class ProductDoesNotExist(id: ProductID) : ModelException("Product with id $id does not exist")
+    class ProductCanNotHaveThisPrice(price: Double) :
+        ModelException("Product can`t have price of $price")
 
-    class ProductCanNotHaveThisCount(id: UUID, count: Int) :
-        ModelException("Product with id $id can`t have this count $count")
+    class ProductCanNotHaveThisCount(count: Int) :
+        ModelException("Product can`t have count of $count")
 
-    class ProductAlreadyInGroup(product: Product, group: String) :
+    class ProductAlreadyInGroup(product: ProductID, group: GroupID) :
         ModelException("Product $product is already in group $group")
 
-    class GroupAlreadyExists(group: String) :
+    class GroupAlreadyExists(group: GroupID) :
         ModelException("Product with group $group already exists")
 
-    class GroupDoesNotExist(group: String) :
-        ModelException("Product with group $group doesn't exist")
+    class InvalidRequest(message: String) : ModelException(message)
+
+    data class GroupsNotPresent(val missingGroups: Set<GroupID>) :
+        ModelException("Not all of the groups fom the set are present")
+
+    class GroupDoesNotExist(group: GroupID) :
+        ModelException("Group with $group doesn't exist")
+
+    data class SQL(val error: SQLException) : ModelException("SQL exception raised: $error") {
+        override fun toString() = "ModelException.SQL($error)"
+    }
 }
 

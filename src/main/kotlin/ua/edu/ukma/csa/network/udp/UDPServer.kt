@@ -2,6 +2,7 @@ package ua.edu.ukma.csa.network.udp
 
 import arrow.core.Either
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
+import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.network.*
 import java.io.Closeable
 import java.io.IOException
@@ -90,7 +91,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
 
                     if (window == null) {
                         if (packet.sequenceID > packet.window) continue@loop // TODO: send error message back
-                        when(packet.window.toInt()) {
+                        when (packet.window.toInt()) {
                             0 -> continue@loop
                             1 -> {
                                 yield(
@@ -127,7 +128,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                         }
                         window[packet.sequenceID] = packet
                         if (window.received == packet.window) {
-                            val combined = ByteArray(window.packets.sumBy { it!!.size.toInt() })
+                            val combined = ByteArray(window.packets.sumBy { it!!.chunkLength })
                             window.packets.fold(0) { written, blobPacket ->
                                 blobPacket!!.chunk.copyInto(combined, destinationOffset = written)
                                 written + blobPacket.chunk.size
@@ -154,9 +155,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
                     }
                 }
             } catch (ignore: SocketTimeoutException) {
-            } catch (e: IOException) {
-                close()
-                throw e
+            } catch (ignore: SocketException) {
             }
         }
     }
@@ -197,8 +196,7 @@ class UDPServer(port: Int, bindAddress: InetAddress = InetAddress.getByName("0.0
  * [Response.Error] to the sender.
  * @return newly created thread which handles the processing
  */
-@ExperimentalUnsignedTypes
-fun UDPServer.serve() = serve { (data, address, packetCount) ->
+fun UDPServer.serve(model: ModelSource) = serve { (data, address, packetCount) ->
     thread(name = "UDP-Processing-Thread") {
         socket.send(
             when (val request = Packet.decode<Message.Decrypted>(data)) {
@@ -206,7 +204,7 @@ fun UDPServer.serve() = serve { (data, address, packetCount) ->
                     if (packetCount >= request.b.packetID) {
                         val response = Response.PacketBehind.toMessage().handleWithThrow()
                         Packet(clientID = 0u, message = response, packetID = request.b.packetID)
-                    } else handlePacket(request.b)
+                    } else model.handlePacket(request.b)
                 }
                 is Either.Left -> {
                     val response = Response.Error(request.a.message ?: "").toMessage().handleWithThrow()
@@ -225,19 +223,19 @@ fun UDPServer.serve() = serve { (data, address, packetCount) ->
  * will run in a separate thread and every unintended operation outside of this function will lead to
  * undefined behaviour.
  * @param key key which will be used to decrypt message
- * @param cipher cipher which will be used to decrypt message. Takes ownership of cipher
+ * @param cipherFactory function that produces ciphers to be used by different threads
  * @return newly created thread which handles the processing
  */
-@ExperimentalUnsignedTypes
-fun UDPServer.serve(key: Key, cipher: Cipher) = serve { (data, address, packetCount) ->
+fun UDPServer.serve(model: ModelSource, key: Key, cipherFactory: () -> Cipher) = serve { (data, address, packetCount) ->
     thread(name = "UDP-Processing-Thread") {
+        val cipher = cipherFactory()
         socket.send(
             when (val request = Packet.decode<Message.Encrypted>(data)) {
                 is Either.Right -> {
                     if (packetCount >= request.b.packetID) {
                         val response = Response.PacketBehind.toMessage().handleWithThrow().encrypted(key, cipher)
                         Packet(clientID = 0u, message = response, packetID = request.b.packetID)
-                    } else handlePacket(request.b, key, cipher)
+                    } else model.handlePacket(request.b, key, cipher)
                 }
                 is Either.Left -> {
                     val response =

@@ -2,38 +2,36 @@ package ua.edu.ukma.csa
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import ua.edu.ukma.csa.kotlinx.arrow.core.then
+import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.Product
-import ua.edu.ukma.csa.model.addProduct
-import ua.edu.ukma.csa.model.groups
-import ua.edu.ukma.csa.model.model
+import ua.edu.ukma.csa.model.ProductID
+import ua.edu.ukma.csa.model.SQLiteModel
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
+import ua.edu.ukma.csa.network.UserID
 import ua.edu.ukma.csa.network.udp.UDPClient
 import ua.edu.ukma.csa.network.udp.UDPServer
 import ua.edu.ukma.csa.network.udp.serve
 import java.net.InetAddress
 import java.security.Key
 import java.security.SecureRandom
-import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import kotlin.concurrent.thread
 import kotlin.random.nextInt
 
-@ExperimentalUnsignedTypes
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UDPEncryptedClientTest {
 
+    private val model = SQLiteModel(":memory:")
+
     private val key: Key
-    private val clientCipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-    private val serverCipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+    private val cipherFactory = { Cipher.getInstance("AES/CBC/PKCS5Padding") }
 
     init {
         val generator = KeyGenerator.getInstance("AES")
@@ -46,46 +44,44 @@ class UDPEncryptedClientTest {
     private val client = UDPClient.Encrypted(
         InetAddress.getLocalHost(),
         server.socket.localPort,
-        3u,
+        UserID.assign(),
         key,
-        clientCipher
+        cipherFactory()
     )
-    private val biscuit = Product(name = "Biscuit", price = 17.55, count = 10)
+    private lateinit var biscuit: Product
 
     init {
-        thread {
-            server.serve(key, serverCipher)
-        }
+        thread { server.serve(model, key, cipherFactory) }
     }
 
     @BeforeEach
     fun populate() {
         model.clear()
-        groups.clear()
-        addProduct(biscuit)
+        biscuit = model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
     }
 
     @AfterAll
     fun close() {
         server.close()
         client.close()
+        model.close()
     }
 
     @Test
     fun `should add group`() {
         runBlocking {
-            assertRight(MessageType.OK, client.addGroup("name").map { it.type })
-            assertRight(MessageType.OK, client.assignGroup(biscuit.id, "name").map { it.type })
-            assertTrue(groups["name"]!!.contains(biscuit))
+            val (group) = client.addGroup("name").handleWithThrow()
+            client.assignGroup(biscuit.id, group.id)
+            val product = model.getProduct(biscuit.id)
+            assertRight(true, product.map { group.id in it.groups })
         }
     }
 
     @Test
     fun `should get count`() {
         runBlocking {
-            val response = client.getQuantity(biscuit.id)
-            assertRight(10, response.map { it.count })
-            assertRight(biscuit.id, response.map { it.id })
+            val response = client.getProduct(biscuit.id)
+            assertRight(biscuit, response.map { it.product })
         }
     }
 
@@ -96,17 +92,18 @@ class UDPEncryptedClientTest {
             .map { it.toChar() }
             .joinToString(separator = "")
         runBlocking {
-            val res = client.addGroup(randomString)
-                .then { client.assignGroup(biscuit.id, randomString) }
+            val (group) = client.addGroup(randomString).handleWithThrow()
+            val res = client.assignGroup(biscuit.id, group.id)
             assertRight(MessageType.OK, res.map { it.type })
-            assertTrue(groups[randomString]!!.contains(biscuit))
+            val product = model.getProduct(biscuit.id)
+            assertRight(true, product.map { group.id in it.groups })
         }
     }
 
     @Test
     fun `should receive server error`() {
         runBlocking {
-            val result = client.getQuantity(UUID.randomUUID())
+            val result = client.getProduct(ProductID.UNSET)
             assertLeftType<FetchException.ServerResponse>(result)
         }
     }

@@ -20,8 +20,11 @@ import kotlin.math.ceil
  * @return [Either] [RuntimeException] that signifies that packet is too large, or a [Unit]
  */
 inline fun <reified M : Message> DatagramSocket.send(packet: Packet<M>, to: SocketAddress) =
-    splitData(packet.data, packetID = packet.packetID).map { list ->
-        list.asSequence()
+    sendUDPPackets(packet.data, packet.packetID, to)
+
+fun DatagramSocket.sendUDPPackets(data: ByteArray, packetID: ULong, to: SocketAddress) =
+    splitData(data, packetID).map { packets ->
+        packets
             .map { it.data }
             .map { DatagramPacket(it, it.size, to) }
             .forEach(::send)
@@ -39,7 +42,7 @@ fun splitData(
     packetID: ULong,
     offset: Int = 0,
     length: Int = data.size
-): Either<RuntimeException, List<UDPPacket>> {
+): Either<RuntimeException, Sequence<UDPPacket>> {
     if (length.toUInt() > UDPPacket.MAX_PAYLOAD_SIZE) return Left(
         RuntimeException(
             "Data is too large to be transmitted. Size: $length, max: ${UDPPacket.MAX_PAYLOAD_SIZE}"
@@ -47,7 +50,7 @@ fun splitData(
     )
     val window = ceil(length.toDouble() / UDPPacket.PACKET_BODY).toUInt()
 
-    return Right((0u until window).map {
+    return Right((0u until window).asSequence().map {
         UDPPacket(
             window = window.toUByte(),
             sequenceID = it.toUByte(),

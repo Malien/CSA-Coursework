@@ -5,8 +5,13 @@ import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ImplicitReflectionSerializer
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.serializer
+import ua.edu.ukma.csa.model.Criteria
+import ua.edu.ukma.csa.model.GroupID
+import ua.edu.ukma.csa.model.Orderings
+import ua.edu.ukma.csa.model.ProductID
 import java.io.Closeable
-import java.util.*
+
+typealias Fetch<R> = Either<FetchException, R>
 
 /**
  * Client-server communications done via kotlin suspend functions for better convenience. To fully support all
@@ -34,25 +39,59 @@ interface Client : Closeable {
         responseDeserializer: DeserializationStrategy<Res>,
         resendBehind: Boolean = true,
         retries: UInt = 0u
-    ): Either<FetchException, Res>
+    ): Fetch<Res>
 
-    suspend fun getQuantity(id: UUID, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.GetQuantity, Response.Quantity>(Request.GetQuantity(id), resendBehind, retries)
+    suspend fun getProduct(id: ProductID, resendBehind: Boolean = true, retries: UInt = 0u): Fetch<Response.Product> =
+        fetch(Request.GetProduct(id), resendBehind, retries)
 
-    suspend fun addGroup(name: String, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.AddGroup, Response.Ok>(Request.AddGroup(name), resendBehind, retries)
+    suspend fun getProducts(
+        criteria: Criteria,
+        ordering: Orderings = emptyList(),
+        amount: Int? = null,
+        offset: Int? = null,
+        resendBehind: Boolean = true,
+        retries: UInt = 0u
+    ): Fetch<Response.ProductList> =
+        fetch(Request.GetProductList(criteria, ordering, amount, offset), resendBehind, retries)
 
-    suspend fun assignGroup(id: UUID, group: String, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.AssignGroup, Response.Ok>(Request.AssignGroup(id, group), resendBehind, retries)
+    suspend fun addGroup(
+        name: String,
+        resendBehind: Boolean = true,
+        retries: UInt = 0u
+    ): Fetch<Response.Group> =
+        fetch(Request.AddGroup(name), resendBehind, retries)
 
-    suspend fun setPrice(id: UUID, price: Double, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.SetPrice, Response.Ok>(Request.SetPrice(id, price), resendBehind, retries)
+    suspend fun assignGroup(
+        product: ProductID,
+        group: GroupID,
+        resendBehind: Boolean = true,
+        retries: UInt = 0u
+    ): Fetch<Response.Ok> =
+        fetch(Request.AssignGroup(product, group), resendBehind, retries)
 
-    suspend fun include(id: UUID, count: Int, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.Include, Response.Quantity>(Request.Include(id, count), resendBehind, retries)
+    suspend fun setPrice(
+        id: ProductID,
+        price: Double,
+        resendBehind: Boolean = true,
+        retries: UInt = 0u
+    ): Fetch<Response.Ok> =
+        fetch(Request.SetPrice(id, price), resendBehind, retries)
 
-    suspend fun exclude(id: UUID, count: Int, resendBehind: Boolean = true, retries: UInt = 0u) =
-        fetch<Request.Exclude, Response.Quantity>(Request.Exclude(id, count), resendBehind, retries)
+    suspend fun include(
+        id: ProductID,
+        count: Int,
+        resendBehind: Boolean = true,
+        retries: UInt = 0u
+    ): Fetch<Response.Ok> =
+        fetch(Request.Include(id, count), resendBehind, retries)
+
+    suspend fun exclude(
+        id: ProductID,
+        count: Int,
+        resendBehind: Boolean = true,
+        retries: UInt = 0u
+    ): Fetch<Response.Ok> =
+        fetch(Request.Exclude(id, count), resendBehind, retries)
 
     companion object {
         /**
