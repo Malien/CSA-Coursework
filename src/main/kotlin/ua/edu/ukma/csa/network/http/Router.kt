@@ -1,108 +1,54 @@
 package ua.edu.ukma.csa.network.http
 
-import com.sun.net.httpserver.Headers
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
-import com.sun.net.httpserver.HttpServer
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.request.get
-import kotlinx.coroutines.runBlocking
-import java.io.InputStream
-import java.net.InetAddress
-import java.net.InetSocketAddress
-import java.net.URI
 import java.util.*
 import kotlin.collections.HashMap
 
-data class HTTPRequest(
-    val matches: HashMap<String, String>,
-    val headers: Headers,
-    val method: String,
-    val uri: URI,
-    val body: InputStream
-)
-
-class HTTPResponse(
-    val statusCode: Int,
-    val headers: Headers = Headers(),
-    val body: ByteArray = ByteArray(0)
-) {
-    constructor(
-        statusCode: Int,
-        headers: Headers = Headers(),
-        body: String
-    ) : this(statusCode, headers, body.toByteArray())
-
-    companion object {
-        fun ok(body: String, headers: Headers = Headers()) =
-            ok(body.toByteArray(), headers)
-
-        fun ok(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
-            HTTPResponse(200, headers, body)
-
-        fun notFound(body: String, headers: Headers = Headers()) =
-            notFound(body.toByteArray(), headers)
-
-        fun notFound(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
-            HTTPResponse(404, headers, body)
-
-        fun unauthorized(body: String, headers: Headers = Headers()) =
-            unauthorized(body.toByteArray(), headers)
-
-        fun unauthorized(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
-            HTTPResponse(401, headers, body)
-
-        fun invalidRequest(body: String, headers: Headers = Headers()) =
-            invalidRequest(body.toByteArray(), headers)
-
-        fun invalidRequest(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
-            HTTPResponse(400, headers, body)
-
-        fun serverError(body: String, headers: Headers = Headers()) =
-            serverError(body.toByteArray(), headers)
-
-        fun serverError(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
-            HTTPResponse(500, headers, body)
-    }
-}
-
 typealias RouteHandler = (request: HTTPRequest) -> HTTPResponse
 
-// TODO: Get rid of stringly typed HTTP methods
 class HTTPMethodDefinition(
-    private val handlers: HashMap<String, RouteHandler> = HashMap(),
+    private val handlers: HashMap<HTTPMethod, RouteHandler> = HashMap(),
     internal var defaultHandler: RouteHandler? = null
 ) {
-    fun get(handler: RouteHandler) = custom("GET", handler)
+    /** Register GET handler */
+    fun get(handler: RouteHandler) = custom(HTTPMethod.GET, handler)
+    /** Register POST handler */
+    fun post(handler: RouteHandler) = custom(HTTPMethod.POST, handler)
+    /** Register PUT handler */
+    fun put(handler: RouteHandler) = custom(HTTPMethod.PUT, handler)
+    /** Register PATCH handler */
+    fun patch(handler: RouteHandler) = custom(HTTPMethod.PATCH, handler)
+    /** Register DELETE handler */
+    fun delete(handler: RouteHandler) = custom(HTTPMethod.DELETE, handler)
+    /** Register HEAD handler */
+    fun head(handler: RouteHandler) = custom(HTTPMethod.HEAD, handler)
+    /** Register OPTIONS handler */
+    fun options(handler: RouteHandler) = custom(HTTPMethod.OPTIONS, handler)
 
-    fun post(handler: RouteHandler) = custom("POST", handler)
-
-    fun put(handler: RouteHandler) = custom("PUT", handler)
-
-    fun patch(handler: RouteHandler) = custom("PATCH", handler)
-
-    fun delete(handler: RouteHandler) = custom("DELETE", handler)
-
-    fun head(handler: RouteHandler) = custom("HEAD", handler)
-
-    fun option(handler: RouteHandler) = custom("OPTION", handler)
-
-    fun connect(handler: RouteHandler) = custom("CONNECT", handler)
-
+    /**
+     * Register default handler.
+     * Takes lower priority than method-specific handlers
+     */
     fun default(handler: RouteHandler) {
         defaultHandler = handler
     }
 
-    fun custom(method: String, handler: RouteHandler) {
+    /** Register handler for custom HTTP method */
+    fun custom(method: HTTPMethod, handler: RouteHandler) {
         handlers[method] = handler
     }
 
+    /**
+     * Combine method definitions of different handlers. If method handler is set for a particular method, then
+     * that one is gonna be overridden by the new one
+     */
     fun unite(other: HTTPMethodDefinition) = handlers.putAll(other.handlers)
 
-    internal operator fun contains(method: String) = method in handlers
-    internal operator fun get(method: String) = handlers[method]
+    internal operator fun contains(method: HTTPMethod) = method in handlers
+    internal operator fun get(method: HTTPMethod) = handlers[method]
 }
+
 
 val String.isSlug get() = this.startsWith(":")
 
@@ -141,7 +87,7 @@ class RouteDefinition(private val methods: HTTPMethodDefinition = HTTPMethodDefi
         }
     }
 
-    fun traverse(components: List<String>, method: String, matches: HashMap<String, String>): TraversalMatch =
+    fun traverse(components: List<String>, method: HTTPMethod, matches: HashMap<String, String>): TraversalMatch =
         if (components.isEmpty()) {
             when {
                 method in methods -> MatchedHandler(methods[method]!!, matches)
@@ -180,6 +126,29 @@ class Router(
 ) : HttpHandler {
     private val definitions = RouteDefinition()
 
+    fun get(path: String, handler: RouteHandler) = custom(HTTPMethod.GET, path, handler)
+    fun put(path: String, handler: RouteHandler) = custom(HTTPMethod.PUT, path, handler)
+    fun post(path: String, handler: RouteHandler) = custom(HTTPMethod.POST, path, handler)
+    fun patch(path: String, handler: RouteHandler) = custom(HTTPMethod.PATCH, path, handler)
+    fun delete(path: String, handler: RouteHandler) = custom(HTTPMethod.DELETE, path, handler)
+    fun head(path: String, handler: RouteHandler) = custom(HTTPMethod.HEAD, path, handler)
+    fun options(path: String, handler: RouteHandler) = custom(HTTPMethod.OPTIONS, path, handler)
+
+    fun all(path: String, handler: RouteHandler) {
+        val methods = HTTPMethodDefinition(defaultHandler = handler)
+        register(methods, path)
+    }
+
+    fun custom(method: HTTPMethod, path: String, handler: RouteHandler) {
+        val methods = HTTPMethodDefinition(hashMapOf(method to handler))
+        register(methods, path)
+    }
+
+    fun register(definition: HTTPMethodDefinition, path: String) {
+        val components = path.pathComponents.map(::encodeURIComponent).map(::decodeURIComponent).toList()
+        definitions.register(definition, components)
+    }
+
     init {
         definitions.apply(builder)
     }
@@ -198,7 +167,7 @@ class Router(
             matches = HashMap(),
             headers = exchange.requestHeaders,
             body = exchange.requestBody,
-            method = exchange.requestMethod,
+            method = HTTPMethod.parse(exchange.requestMethod),
             uri = exchange.requestURI
         )
 
@@ -225,10 +194,10 @@ class Router(
         }
     }
 
-    private fun findHandler(path: String, method: String) =
+    private fun findHandler(path: String, method: HTTPMethod) =
         findHandler(path.pathComponents.map(::decodeURIComponent).toList(), method)
 
-    private fun findHandler(components: List<String>, method: String): MatchedHandler? {
+    private fun findHandler(components: List<String>, method: HTTPMethod): MatchedHandler? {
         val queue = ArrayDeque<MatchedSlug>().apply {
             add(MatchedSlug(definitions, components, HashMap()))
         }
@@ -240,72 +209,5 @@ class Router(
             }
         }
         return null
-    }
-}
-
-fun main() {
-    val handler: RouteHandler = {
-        println("response")
-        HTTPResponse.ok()
-    }
-
-//    val router = Router {
-//        "/api" {
-//            get(handler)
-//        }
-//        "/api/:id" {
-//            get(handler)
-//        }
-//        "/:slug/one" {
-//            get {
-//                println("/slug/one")
-//                HTTPResponse.ok("response")
-//            }
-//        }
-//        "/:another/two" {
-//            get {
-//                println("/another/two")
-//                HTTPResponse.ok()
-//            }
-//        }
-//        "/api/good/:id" {
-//            get { request ->
-//                HTTPResponse.ok(request.matches["id"]!!)
-//            }
-//        }
-//    }
-
-    val router = Router {
-        "/hello" {
-            get { HTTPResponse.ok("GET /hello") }
-            post { HTTPResponse.ok("POST /hello") }
-        }
-        "/hello/world" {
-            put { HTTPResponse.ok("PUT /hello/world") }
-            default {
-                HTTPResponse(
-                    statusCode = 500,
-                    headers = Headers().apply { add("my-header", "my value") },
-                    body = "/hello/world"
-                )
-            }
-        }
-        "/world" {
-            delete { HTTPResponse.ok("DELETE /world") }
-            custom("CUSTOM") { HTTPResponse.ok("CUSTOM /world") }
-        }
-        "/" {
-            get { HTTPResponse.ok("/") }
-        }
-    }
-
-    val server = HttpServer.create(InetSocketAddress(InetAddress.getByName("0.0.0.0"), 4499), 50)
-    server.createContext("/", router)
-    server.start()
-
-    runBlocking {
-        HttpClient(CIO).use { client ->
-            println(client.get<String>("http://localhost:4499/hello"))
-        }
     }
 }

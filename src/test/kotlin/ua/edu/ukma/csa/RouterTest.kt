@@ -16,6 +16,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import ua.edu.ukma.csa.network.http.HTTPMethod
 import ua.edu.ukma.csa.network.http.HTTPResponse
 import ua.edu.ukma.csa.network.http.Router
 import ua.edu.ukma.csa.network.http.encodeURIComponent
@@ -62,7 +63,7 @@ class RouterTest {
             }
             "/world" {
                 delete { HTTPResponse.ok("DELETE /world") }
-                custom("CUSTOM") { HTTPResponse.ok("CUSTOM /world") }
+                custom(HTTPMethod("CUSTOM")) { HTTPResponse.ok("CUSTOM /world") }
             }
             "/юник🌝д" {
                 get { HTTPResponse.ok("GET /юник🌝д") }
