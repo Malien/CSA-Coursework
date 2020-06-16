@@ -7,6 +7,7 @@ plugins {
 }
 
 val arrowVersion = "0.10.5"
+val ktorVersion = "1.3.1"
 group = "org.example"
 version = "1.0-SNAPSHOT"
 
@@ -29,6 +30,8 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:2.0.0-alpha1") // SLF4J Logger (used by Hikari)
     implementation("com.zaxxer:HikariCP:3.4.5") // JDBC connection pool
     implementation(kotlin("script-runtime")) // Ability to run kotlin scripts
+    implementation("io.ktor:ktor-client-core:$ktorVersion") // KTor HTTP client
+    implementation("io.ktor:ktor-client-cio:$ktorVersion") // CIO HTTP client engine
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.2.0") // JUnit 5
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.2.0") // JUnit 5 engine
