@@ -22,7 +22,7 @@ import java.net.InetSocketAddress
 import kotlin.concurrent.thread
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class TCPPacketTest {
+class TCPClientTest {
 
     private val model = SQLiteModel(":memory:")
 
@@ -41,7 +41,7 @@ class TCPPacketTest {
     @BeforeEach
     fun populate() {
         model.clear()
-        model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
+        biscuit = model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
     }
 
     @AfterAll
@@ -61,11 +61,10 @@ class TCPPacketTest {
     }
 
     @Test
-    fun `should get count`() {
+    fun `should get product`() {
         runBlocking {
             val response = client.getProduct(biscuit.id)
-            assertRight(10, response.map { it.count })
-            assertRight(biscuit.id, response.map { it.id })
+            assertRight(biscuit, response.map { it.product })
         }
     }
 

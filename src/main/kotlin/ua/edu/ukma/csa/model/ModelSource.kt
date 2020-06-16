@@ -20,7 +20,7 @@ typealias Orderings = List<Ordering>
 
 @Serializable
 data class Ordering internal constructor(
-    val property: ProductProperty,
+    val properties: ProductProperty,
     val order: Order
 ) {
     companion object {
@@ -44,7 +44,7 @@ interface ModelSource {
     /**
      * Retrieve a list of products, filtered out by the [criteria][Criteria] provided
      * @param criteria [Criteria] which is used to filter out objects
-     * @param ordering [Ordering] which is used to sort out results. If set to null, model's native ordering is applied.
+     * @param orderings [Ordering] which is used to sort out results. If set to null, model's native ordering is applied.
      *                 _Defaults to `null`_
      * @param offset index from which to load data. `null` specifies that products should be retrieved from the
      *               beginning. _Defaults to `null`_
@@ -53,7 +53,7 @@ interface ModelSource {
      */
     fun getProducts(
         criteria: Criteria = Criteria(),
-        ordering: List<Ordering> = emptyList(),
+        orderings: Orderings = emptyList(),
         offset: Int? = null,
         amount: Int? = null
     ): Either<ModelException, List<Product>>

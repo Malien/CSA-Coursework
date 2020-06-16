@@ -5,7 +5,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
 import ua.edu.ukma.csa.model.Criteria
 import ua.edu.ukma.csa.model.GroupID
-import ua.edu.ukma.csa.model.Ordering
+import ua.edu.ukma.csa.model.Orderings
 import ua.edu.ukma.csa.model.ProductID
 
 @Serializable
@@ -23,8 +23,8 @@ sealed class Request(@Transient val messageType: MessageType = MessageType.ERR) 
 
     @Serializable
     data class GetProductList(
-        val criteria: Criteria,
-        val ordering: List<Ordering> = emptyList(),
+        val criteria: Criteria = Criteria(),
+        val ordering: Orderings = emptyList(),
         val offset: Int? = null,
         val amount: Int? = null
     ) : Request(MessageType.GET_PRODUCT_LIST)
