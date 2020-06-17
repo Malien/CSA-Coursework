@@ -185,6 +185,8 @@ class Router(
             }
         }
 
+        request.body.close()
+
         exchange.responseHeaders.putAll(response.headers)
         if (response.body.isEmpty()) {
             exchange.sendResponseHeaders(response.statusCode, -1)

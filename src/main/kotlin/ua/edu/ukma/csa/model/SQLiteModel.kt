@@ -74,7 +74,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS valid_token (
-                    token TEXT PRIMARY KEY NOT NULL
+                    token TEXT PRIMARY KEY NOT NULL,
                     exp INTEGER
                 ) WITHOUT ROWID
                 """

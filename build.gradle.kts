@@ -33,6 +33,9 @@ dependencies {
     implementation("commons-codec:commons-codec:1.14") // Apache commons codec
     implementation("io.ktor:ktor-client-core:$ktorVersion") // KTor HTTP client
     implementation("io.ktor:ktor-client-cio:$ktorVersion") // CIO HTTP client engine
+    implementation("com.auth0:java-jwt:3.10.3") // JWTs
+//    implementation("io.github.cdimascio:java-dotenv:5.2.1") // .env
+    implementation("com.github.ajalt:clikt:1.3.0") // CLI KT - CLI interface
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.2.0") // JUnit 5
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.2.0") // JUnit 5 engine
