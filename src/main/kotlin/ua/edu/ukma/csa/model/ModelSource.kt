@@ -148,7 +148,7 @@ interface ModelSource {
     fun getUser(id: UserID): Either<ModelException, User>
 
     /**
-     * Retrieve user by it's login.
+     * retrieve user by it's login.
      * @param login unique user login
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [User] otherwise
      */
@@ -170,9 +170,12 @@ interface ModelSource {
      * Include token into the model to be tracked as valid
      * I imagine invalid token cleanup would be done externally, like running aws lambda function every now and then.
      * This would require an additional timeout column and an index build for it.
+     * @param token unique token to be tracked as valid
+     * @param expiresAt UNIX epoch timestamp that signifies expiration date of the token. Invalid tokens should be
+     * removed from database by something like aws lambda function every now and then
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
      */
-    fun approveToken(token: String): Either<ModelException, Unit>
+    fun approveToken(token: String, expiresAt: Long? = null): Either<ModelException, Unit>
 
     /**
      * Clear all of the data from model. **NOTE: USE REALLY CAREFULLY AND FOR TESTS ONLY**

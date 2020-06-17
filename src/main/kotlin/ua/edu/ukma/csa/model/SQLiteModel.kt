@@ -75,9 +75,11 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
                 """
                 CREATE TABLE IF NOT EXISTS valid_token (
                     token TEXT PRIMARY KEY NOT NULL
+                    exp INTEGER
                 ) WITHOUT ROWID
                 """
             )
+            connection.execute("CREATE INDEX IF NOT EXISTS valid_token_index_exp ON valid_token(exp)")
         }
     }
 
@@ -450,6 +452,10 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         }
     }
 
+    /**
+     * Check if the token specified is valid in the model
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Boolean] otherwise
+     */
     override fun isTokenValid(token: String): Either<ModelException, Boolean> = withConnection { connection ->
         connection.prepareStatement("SELECT count(*) AS token_count FROM valid_token WHERE token = ?")
             .use { statement ->
@@ -460,6 +466,10 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
             }
     }
 
+    /**
+     * Invalidate token
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
     override fun invalidateToken(token: String): Either<ModelException, Unit> = withConnection { connection ->
         connection.prepareStatement("DELETE FROM valid_token WHERE token = ?").use { statement ->
             statement.setString(1, token)
@@ -468,9 +478,20 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         }
     }
 
-    override fun approveToken(token: String): Either<ModelException, Unit> = withConnection { connection ->
-        connection.prepareStatement("INSERT INTO valid_token (token) VALUES (?)").use { statement ->
+    /**
+     * Include token into the model to be tracked as valid
+     * I imagine invalid token cleanup would be done externally, like running aws lambda function every now and then.
+     * This would require an additional timeout column and an index build for it.
+     * @param token unique token to be tracked as valid
+     * @param expiresAt UNIX epoch timestamp that signifies expiration date of the token. Invalid tokens should be
+     * removed from database by something like aws lambda function every now and then
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
+    override fun approveToken(token: String, expiresAt: Long?): Either<ModelException, Unit> = withConnection { connection ->
+        connection.prepareStatement("INSERT INTO valid_token (token, exp) VALUES (?, ?)").use { statement ->
             statement.setString(1, token)
+            if (expiresAt == null) statement.setNull(2, Types.INTEGER)
+            else statement.setLong(1, expiresAt)
             statement.executeUpdate()
             Right(Unit)
         }
