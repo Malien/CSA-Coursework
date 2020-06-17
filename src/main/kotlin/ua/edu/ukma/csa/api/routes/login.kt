@@ -23,8 +23,7 @@ fun login(model: ModelSource, tokenSecret: String): RouteHandler = jsonRoute { _
             if (it is ModelException.UserDoesNotExist) RouteException.CredentialMismatch()
             else RouteException.ServerError(it.message)
         }
-        .map { it to password }
-        .flatMap { (user, password) ->
+        .flatMap { user ->
             val hash = DigestUtils.md5Hex(password)
             if (hash == user.hash) Right(user)
             else Left(RouteException.CredentialMismatch())
