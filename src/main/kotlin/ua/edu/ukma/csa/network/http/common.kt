@@ -53,6 +53,11 @@ data class HTTPResponse(
         return this
     }
 
+    fun html(): HTTPResponse {
+        headers.add("Content-Type", "text/html")
+        return this
+    }
+
     fun close(): HTTPResponse {
         headers["Connection"] = "close"
         return this

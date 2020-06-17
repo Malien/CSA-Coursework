@@ -187,6 +187,10 @@ class Router(
 
         request.body.close()
 
+        if (response.headers["Connection"] == null) {
+            response.headers["Connection"] = request.headers["Connection"]
+        }
+
         exchange.responseHeaders.putAll(response.headers)
         if (response.body.isEmpty()) {
             exchange.sendResponseHeaders(response.statusCode, -1)

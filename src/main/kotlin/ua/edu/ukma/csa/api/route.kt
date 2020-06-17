@@ -6,6 +6,7 @@ import arrow.core.flatMap
 import kotlinx.serialization.*
 import ua.edu.ukma.csa.api.RouteException.Companion.serverError
 import ua.edu.ukma.csa.api.routes.login
+import ua.edu.ukma.csa.api.routes.root
 import ua.edu.ukma.csa.kotlinx.serialization.fparse
 import ua.edu.ukma.csa.kotlinx.serialization.fstringify
 import ua.edu.ukma.csa.model.ModelSource
@@ -53,6 +54,9 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     "/login" {
         post(login(model, tokenSecret))
     }
+    "/" {
+        get(root)
+    }
 }
 
 @OptIn(ImplicitReflectionSerializer::class)
@@ -69,6 +73,5 @@ inline fun <reified In: RouteInput, reified Err : RouteException, reified Res: R
             .flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
             .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
             .json()
-            .keepAlive()
     }
 }
