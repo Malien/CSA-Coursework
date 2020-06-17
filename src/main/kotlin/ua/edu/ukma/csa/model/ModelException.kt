@@ -10,7 +10,7 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
     class ProductCanNotHaveThisCount(count: Int) :
         ModelException("Product can`t have count of $count")
 
-    class ProductAlreadyInGroup(product: Product, group: GroupID) :
+    class ProductAlreadyInGroup(product: ProductID, group: GroupID) :
         ModelException("Product $product is already in group $group")
 
     class GroupAlreadyExists(group: GroupID) :
@@ -25,7 +25,10 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
 
     class UserLoginAlreadyExists(login: String) : ModelException("User with login $login already exists")
 
-    class UserDoesNotExist(id: UserID) : ModelException("User with $id does not exist")
+    class UserDoesNotExist : ModelException {
+        constructor(id: UserID): super("User with $id does not exist")
+        constructor(login: String): super("User with login $login does not exist")
+    }
 
     sealed class Password(reason: String) : ModelException(reason) {
         class Length(expected: Int, got: Int) :
@@ -41,8 +44,6 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
         override fun toString() = "ModelException.SQL($error)"
     }
 
-    // TODO: Remove this one
-    class NotImplemented() :
-        ModelException("Not implemented")
+    class IllegalLoginCharacters : ModelException("Login contains illegal characters")
 }
 

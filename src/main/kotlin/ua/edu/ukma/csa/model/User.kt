@@ -35,10 +35,17 @@ val lowercaseRegex = Regex("[a-z]")
 val uppercaseRegex = Regex("[A-Z]")
 val digitRegex = Regex("""\d""")
 
-fun checkPassword(password: String): Either<ModelException.Password, Unit> {
+fun checkPassword(password: String): Either<ModelException.Password, String> {
     if (password.length < 6) return Left(ModelException.Password.Length(6, password.length))
     if (!password.contains(lowercaseRegex)) return Left(ModelException.Password.NoLowercase())
     if (!password.contains(uppercaseRegex)) return Left(ModelException.Password.NoUppercase())
     if (!password.contains(digitRegex)) return Left(ModelException.Password.NoDigits())
-    return Right(Unit)
+    return Right(password)
+}
+
+val loginRegex = Regex("""[\w_-]+""")
+
+fun checkLogin(login: String): Either<ModelException.IllegalLoginCharacters, String> {
+    if (loginRegex.matches(login)) return Left(ModelException.IllegalLoginCharacters())
+    return Right(login)
 }

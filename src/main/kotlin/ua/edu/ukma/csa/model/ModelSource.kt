@@ -20,7 +20,7 @@ typealias Orderings = List<Ordering>
 
 @Serializable
 data class Ordering internal constructor(
-    val property: ProductProperty,
+    val properties: ProductProperty,
     val order: Order
 ) {
     companion object {
@@ -44,7 +44,7 @@ interface ModelSource {
     /**
      * Retrieve a list of products, filtered out by the [criteria][Criteria] provided
      * @param criteria [Criteria] which is used to filter out objects
-     * @param ordering [Ordering] which is used to sort out results. If set to null, model's native ordering is applied.
+     * @param orderings [Ordering] which is used to sort out results. If set to null, model's native ordering is applied.
      *                 _Defaults to `null`_
      * @param offset index from which to load data. `null` specifies that products should be retrieved from the
      *               beginning. _Defaults to `null`_
@@ -53,7 +53,7 @@ interface ModelSource {
      */
     fun getProducts(
         criteria: Criteria = Criteria(),
-        ordering: List<Ordering> = emptyList(),
+        orderings: Orderings = emptyList(),
         offset: Int? = null,
         amount: Int? = null
     ): Either<ModelException, List<Product>>
@@ -130,14 +130,48 @@ interface ModelSource {
      */
     fun setPrice(id: ProductID, price: Double): Either<ModelException, Unit>
 
+    /**
+     * Register user in the model
+     * @param login unique login string
+     * @param password users plain-text password
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [User] otherwise
+     * if login does not match filter, [Left] of [ModelException.IllegalLoginCharacters] will be returned
+     * if password does not match filter, [Left] of [ModelException.Password] will be returned
+     */
     fun addUser(login: String, password: String): Either<ModelException, User>
 
+    /**
+     * Retrieve user by it's id.
+     * @param id unique user id
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [User] otherwise
+     */
     fun getUser(id: UserID): Either<ModelException, User>
 
+    /**
+     * Retrieve user by it's login.
+     * @param login unique user login
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [User] otherwise
+     */
+    fun getUser(login: String): Either<ModelException, User>
+
+    /**
+     * Check if the token specified is valid in the model
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Boolean] otherwise
+     */
     fun isTokenValid(token: String): Either<ModelException, Boolean>
 
+    /**
+     * Invalidate token
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
     fun invalidateToken(token: String): Either<ModelException, Unit>
 
+    /**
+     * Include token into the model to be tracked as valid
+     * I imagine invalid token cleanup would be done externally, like running aws lambda function every now and then.
+     * This would require an additional timeout column and an index build for it.
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
     fun approveToken(token: String): Either<ModelException, Unit>
 
     /**

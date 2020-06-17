@@ -12,36 +12,52 @@ import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.Product
 import ua.edu.ukma.csa.model.ProductID
 import ua.edu.ukma.csa.model.SQLiteModel
+import ua.edu.ukma.csa.model.UserID
 import ua.edu.ukma.csa.network.FetchException
-import ua.edu.ukma.csa.network.UserID
 import ua.edu.ukma.csa.network.tcp.TCPClient
 import ua.edu.ukma.csa.network.tcp.TCPServer
 import ua.edu.ukma.csa.network.tcp.serve
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.security.Key
+import java.security.SecureRandom
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
 import kotlin.concurrent.thread
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class TCPPacketTest {
+class TCPEncryptedClientTest {
 
     private val model = SQLiteModel(":memory:")
 
+    private val key: Key
+    private val cipherFactory = { Cipher.getInstance("AES/CBC/PKCS5Padding") }
+
+    init {
+        val generator = KeyGenerator.getInstance("AES")
+        val random = SecureRandom()
+        generator.init(128, random)
+        key = generator.generateKey()
+    }
+
     private val server = TCPServer(0)
     private val client =
-        TCPClient.Decrypted(
+        TCPClient.Encrypted(
             InetSocketAddress(InetAddress.getLocalHost(), server.serverSocket.localPort),
-            UserID.assign()
+            UserID.UNSET,
+            key,
+            cipherFactory()
         )
     private lateinit var biscuit: Product
 
     init {
-        thread { server.serve(model) }
+        thread { server.serve(model, key, cipherFactory) }
     }
 
     @BeforeEach
     fun populate() {
         model.clear()
-        model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
+        biscuit = model.addProduct(name = "Biscuit", price = 17.55, count = 10).handleWithThrow()
     }
 
     @AfterAll
@@ -61,11 +77,10 @@ class TCPPacketTest {
     }
 
     @Test
-    fun `should get count`() {
+    fun `should get product`() {
         runBlocking {
             val response = client.getProduct(biscuit.id)
-            assertRight(10, response.map { it.count })
-            assertRight(biscuit.id, response.map { it.id })
+            assertRight(biscuit, response.map { it.product })
         }
     }
 

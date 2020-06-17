@@ -10,6 +10,7 @@ import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.protobuf.ProtoBuf
 import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
 import ua.edu.ukma.csa.kotlinx.serialization.fload
+import ua.edu.ukma.csa.model.UserID
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.udp.UDPClient
 import java.io.IOException
@@ -117,15 +118,15 @@ sealed class TCPClient(private val serverAddress: SocketAddress, private val use
         responseDeserializer: DeserializationStrategy<Res>,
         resendBehind: Boolean,
         retries: UInt
-    ): Either<FetchException, Res> = withContext(Dispatchers.IO) {
+    ): Fetch<Res> = withContext(Dispatchers.IO) {
         val message = request.toMessage(requestSerializer, userID)
             .mapLeft { FetchException.Serialization(it) }
             .unwrap { return@withContext it }
         val id = packetID.incrementAndGet().toULong()
         val packet = Packet(clientID = UDPClient.CLIENT_ID, message = message, packetID = id)
-        return@withContext suspendCoroutine<Either<FetchException, Res>> { continuation ->
+        return@withContext suspendCoroutine<Fetch<Res>> { continuation ->
             handlers[id] = Handler(
-                continuation as Continuation<Either<FetchException, Response>>,
+                continuation as Continuation<Fetch<Response>>,
                 packet,
                 responseDeserializer as DeserializationStrategy<Response>,
                 resendBehind,
@@ -168,8 +169,8 @@ sealed class TCPClient(private val serverAddress: SocketAddress, private val use
 
     class Encrypted(serverAddress: SocketAddress, userID: UserID, private val key: Key, private val cipher: Cipher) :
         TCPClient(serverAddress, userID) {
-        override fun decode(stream: InputStream) = Packet.sequenceFrom<Message.Encrypted>(stream)
-            .map {
+        override fun decode(stream: InputStream) =
+            Packet.sequenceFrom<Message.Encrypted>(stream).map {
                 it.map { packet ->
                     Packet(
                         clientID = packet.clientID,
