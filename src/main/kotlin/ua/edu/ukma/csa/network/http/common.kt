@@ -5,6 +5,8 @@ import java.io.InputStream
 import java.net.URI
 
 inline class HTTPMethod(val name: String) {
+    override fun toString() = name
+
     companion object {
         val GET = HTTPMethod("GET")
         val POST = HTTPMethod("POST")
@@ -35,7 +37,7 @@ data class HTTPRequest(
     val body: InputStream
 )
 
-class HTTPResponse(
+data class HTTPResponse(
     val statusCode: Int,
     val headers: Headers = Headers(),
     val body: ByteArray = ByteArray(0)
@@ -45,6 +47,26 @@ class HTTPResponse(
         headers: Headers = Headers(),
         body: String
     ) : this(statusCode, headers, body.toByteArray())
+
+    fun json(): HTTPResponse {
+        headers.add("Content-Type", "application/json")
+        return this
+    }
+
+    fun html(): HTTPResponse {
+        headers.add("Content-Type", "text/html")
+        return this
+    }
+
+    fun close(): HTTPResponse {
+        headers["Connection"] = "close"
+        return this
+    }
+
+    fun keepAlive(): HTTPResponse {
+        headers["Connection"] = "keep-alive"
+        return this
+    }
 
     companion object {
         fun ok(body: String, headers: Headers = Headers()) =
@@ -76,6 +98,26 @@ class HTTPResponse(
 
         fun serverError(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
             HTTPResponse(500, headers, body)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as HTTPResponse
+
+        if (statusCode != other.statusCode) return false
+        if (headers != other.headers) return false
+        if (!body.contentEquals(other.body)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = statusCode
+        result = 31 * result + headers.hashCode()
+        result = 31 * result + body.contentHashCode()
+        return result
     }
 }
 

@@ -1,4 +1,4 @@
-package ua.edu.ukma.csa.network
+package ua.edu.ukma.csa.api
 
 import arrow.core.Either
 import arrow.core.Left
@@ -11,6 +11,7 @@ import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.serialization.fload
 import ua.edu.ukma.csa.model.ModelException
 import ua.edu.ukma.csa.model.ModelSource
+import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.MessageType.*
 import java.io.InputStream
 import java.io.OutputStream

@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import ua.edu.ukma.csa.api.handlePacket
+import ua.edu.ukma.csa.api.handleStream
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.nextByte
 import ua.edu.ukma.csa.kotlinx.nextLong

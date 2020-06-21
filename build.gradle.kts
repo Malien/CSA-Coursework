@@ -31,8 +31,13 @@ dependencies {
     implementation("com.zaxxer:HikariCP:3.4.5") // JDBC connection pool
     implementation(kotlin("script-runtime")) // Ability to run kotlin scripts
     implementation("commons-codec:commons-codec:1.14") // Apache commons codec
-    implementation("io.ktor:ktor-client-core:$ktorVersion") // KTor HTTP client
+    implementation("io.ktor:ktor-client-core:$ktorVersion") // Ktor HTTP client
     implementation("io.ktor:ktor-client-cio:$ktorVersion") // CIO HTTP client engine
+    implementation("io.ktor:ktor-client-json:$ktorVersion") // Ktor client serialization
+    implementation("io.ktor:ktor-client-serialization-jvm:$ktorVersion") // Ktor client serialization on JVM
+    implementation("com.auth0:java-jwt:3.10.3") // JWTs
+//    implementation("io.github.cdimascio:java-dotenv:5.2.1") // .env
+    implementation("com.github.ajalt:clikt:1.3.0") // CLI KT - CLI interface
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.2.0") // JUnit 5
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.2.0") // JUnit 5 engine
