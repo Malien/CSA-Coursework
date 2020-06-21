@@ -21,11 +21,29 @@ sealed class ModelException(msg: String) : RuntimeException(msg) {
     data class GroupsNotPresent(val missingGroups: Set<GroupID>) :
         ModelException("Not all of the groups fom the set are present")
 
-    class GroupDoesNotExist(group: GroupID) :
-        ModelException("Group with $group doesn't exist")
+    class GroupDoesNotExist(group: GroupID) : ModelException("Group with $group doesn't exist")
+
+    class UserLoginAlreadyExists(login: String) : ModelException("User with login $login already exists")
+
+    class UserDoesNotExist : ModelException {
+        constructor(id: UserID): super("User with $id does not exist")
+        constructor(login: String): super("User with login $login does not exist")
+    }
+
+    sealed class Password(reason: String) : ModelException(reason) {
+        class Length(expected: Int, got: Int) :
+            Password("Password is too short. Expected at least $expected, got $got")
+
+        class NoDigits : Password("Password should contain at least one digit")
+        class NoUppercase : Password("Password should contain at least one uppercase letter")
+        class NoLowercase : Password("Password should contain at least one lowercase letter")
+        class ForbiddenCharacters : Password("Password contains illegal characters")
+    }
 
     data class SQL(val error: SQLException) : ModelException("SQL exception raised: $error") {
         override fun toString() = "ModelException.SQL($error)"
     }
+
+    class IllegalLoginCharacters : ModelException("Login contains illegal characters")
 }
 

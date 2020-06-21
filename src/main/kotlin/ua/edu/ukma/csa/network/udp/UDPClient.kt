@@ -10,6 +10,7 @@ import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.protobuf.ProtoBuf
 import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
 import ua.edu.ukma.csa.kotlinx.serialization.fload
+import ua.edu.ukma.csa.model.UserID
 import ua.edu.ukma.csa.network.*
 import java.io.IOException
 import java.net.*

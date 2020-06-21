@@ -4,8 +4,7 @@ import arrow.core.Either
 import arrow.core.Left
 import arrow.core.Right
 import ua.edu.ukma.csa.kotlinx.arrow.core.unwrap
-import ua.edu.ukma.csa.kotlinx.java.util.putInt
-import ua.edu.ukma.csa.kotlinx.java.util.uInt
+import ua.edu.ukma.csa.model.UserID
 import java.nio.ByteBuffer
 import java.security.Key
 import javax.crypto.Cipher
@@ -204,7 +203,7 @@ sealed class Message(
             val type = MessageType.fromID(typeID).unwrap {
                 return@decode Left(PacketException.InvalidType(typeID))
             }
-            val userID = UserID(buffer.uInt)
+            val userID = UserID(buffer.int)
             val message = ByteArray(length - 8)
             buffer.get(message)
 

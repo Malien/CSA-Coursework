@@ -4,9 +4,13 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
-import ua.edu.ukma.csa.network.*
+import ua.edu.ukma.csa.model.UserID
+import ua.edu.ukma.csa.network.Message
+import ua.edu.ukma.csa.network.MessageType
+import ua.edu.ukma.csa.network.Packet
 import ua.edu.ukma.csa.network.Packet.Companion.calculateHeaderCRC
 import ua.edu.ukma.csa.network.Packet.Companion.calculateMessageCRC
+import ua.edu.ukma.csa.network.PacketException
 import java.io.ByteArrayInputStream
 import java.security.Key
 import java.security.SecureRandom
@@ -29,7 +33,7 @@ internal class PacketTest {
 
     @BeforeEach
     fun setup() {
-        message = Message.Decrypted(type = MessageType.OK, userID = UserID.assign(), message = "hello".toByteArray())
+        message = Message.Decrypted(type = MessageType.OK, userID = UserID.UNSET, message = "hello".toByteArray())
     }
 
     @Test
@@ -118,7 +122,7 @@ internal class PacketTest {
     fun decodeMultiple() {
         val messages = "Lorem ipsum dolor sit amet".split(' ').asSequence()
         val packets = messages
-            .map { Message.Decrypted(type = MessageType.OK, userID = UserID.assign(), message = it.toByteArray()) }
+            .map { Message.Decrypted(type = MessageType.OK, userID = UserID.UNSET, message = it.toByteArray()) }
             .mapIndexed { idx, message -> Packet(clientID = 3u, message = message, packetID = idx.toULong()) }
             .map { it.data }
             .reduce { acc, data ->

@@ -17,6 +17,7 @@ import ua.edu.ukma.csa.kotlinx.serialization.fload
 import ua.edu.ukma.csa.model.Group
 import ua.edu.ukma.csa.model.Product
 import ua.edu.ukma.csa.model.SQLiteModel
+import ua.edu.ukma.csa.model.UserID
 import ua.edu.ukma.csa.network.*
 import ua.edu.ukma.csa.network.Packet.Companion.sequenceFrom
 import ua.edu.ukma.csa.network.Request.GetProduct
@@ -40,7 +41,7 @@ class ProcessingTest {
     private val random = Random()
 
     private var packetID = 0uL
-    private var userID = UserID.assign()
+    private var userID = UserID.UNSET
     private var clientID: UByte = 0u
 
     private val key: Key

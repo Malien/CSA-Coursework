@@ -7,6 +7,7 @@ import arrow.core.flatMap
 import arrow.syntax.function.partially1
 import arrow.syntax.function.partially2
 import com.zaxxer.hikari.HikariDataSource
+import org.apache.commons.codec.digest.DigestUtils
 import ua.edu.ukma.csa.kotlinx.arrow.core.bind
 import ua.edu.ukma.csa.kotlinx.java.sql.execute
 import ua.edu.ukma.csa.kotlinx.java.sql.executeUpdate
@@ -63,6 +64,25 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
                 ) WITHOUT ROWID
             """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    login VARCHAR(32) UNIQUE NOT NULL,
+                    hash TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute("CREATE INDEX IF NOT EXISTS user_index_login ON user (login)")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS valid_token (
+                    token TEXT PRIMARY KEY NOT NULL,
+                    exp INTEGER
+                ) WITHOUT ROWID
+                """
+            )
+            connection.execute("CREATE INDEX IF NOT EXISTS valid_token_index_exp ON valid_token(exp)")
         }
     }
 
@@ -348,12 +368,139 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
     override fun setPrice(id: ProductID, price: Double): Either<ModelException, Unit> =
-        if (price < 0) Left(ModelException.ProductCanNotHaveThisPrice(price))
-        else withConnection { connection ->
-            val setPrice = connection.prepareStatement("""UPDATE product SET price=$price WHERE id = ${id.id}""")
-            setPrice.executeUpdate()
+        if (price < 0) {
+            Left(ModelException.ProductCanNotHaveThisPrice(price))
+        } else {
+            withConnection { connection ->
+                val setPrice =
+                    connection.prepareStatement("UPDATE product SET price=$price WHERE id = ${id.id}")
+                setPrice.executeUpdate()
+                Right(Unit)
+            }
+        }
+
+    /**
+     * Register user in the model
+     * @param login unique login string
+     * @param password users plain-text password
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [User] otherwise
+     * if login does not match filter, [Left] of [ModelException.IllegalLoginCharacters] will be returned
+     * if password does not match filter, [Left] of [ModelException.Password] will be returned
+     */
+    override fun addUser(login: String, password: String): Either<ModelException, User> =
+        checkLogin(login).flatMap {
+            checkPassword(password)
+        }.flatMap {
+            withConnection { connection ->
+                connection.transaction {
+                    connection.prepareStatement("SELECT count(*) AS user_count FROM user WHERE login = ?")
+                        .use { statement ->
+                            statement.setString(1, login)
+                            val result = statement.executeQuery()
+                            val count = result.getInt("user_count")
+                            if (count != 0) Left(ModelException.UserLoginAlreadyExists(login))
+                            else Right(Unit)
+                        }.flatMap {
+                            val hash = DigestUtils.md5Hex(password)
+                            val id = connection.prepareStatement(
+                                "INSERT INTO user (login, hash) VALUES (?, ?)",
+                                Statement.RETURN_GENERATED_KEYS
+                            ).use { statement ->
+                                statement.setString(1, login)
+                                statement.setString(2, hash)
+                                statement.executeUpdate()
+                                statement.generatedKeys.use { keys ->
+                                    keys.next()
+                                    keys.getInt(1)
+                                }
+                            }
+                            Right(User(UserID(id), login, hash))
+                        }
+                }
+            }
+        }
+
+    /**
+     * Retrieve user by it's id.
+     * @param id unique user id
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [User] otherwise
+     */
+    override fun getUser(id: UserID): Either<ModelException, User> = withConnection { connection ->
+        connection.createStatement().use { statement ->
+            val result = statement.executeQuery("SELECT login, hash FROM user WHERE id = ${id.id}")
+            if (result.next()) {
+                val login = result.getString("login")
+                val hash = result.getString("hash")
+                Right(User(id, login, hash))
+            } else {
+                Left(ModelException.UserDoesNotExist(id))
+            }
+        }
+    }
+
+    /**
+     * Retrieve user by it's login.
+     * @param login unique user login
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [User] otherwise
+     */
+    override fun getUser(login: String): Either<ModelException, User> = withConnection { connection ->
+        connection.prepareStatement("SELECT id, hash FROM user WHERE login = ?").use { statement ->
+            statement.setString(1, login)
+            val result = statement.executeQuery()
+            if (result.next()) {
+                val id = result.getInt("id")
+                val hash = result.getString("hash")
+                Right(User(UserID(id), login, hash))
+            } else {
+                Left(ModelException.UserDoesNotExist(login))
+            }
+        }
+    }
+
+    /**
+     * Check if the token specified is valid in the model
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Boolean] otherwise
+     */
+    override fun isTokenValid(token: String): Either<ModelException, Boolean> = withConnection { connection ->
+        connection.prepareStatement("SELECT count(*) AS token_count FROM valid_token WHERE token = ?")
+            .use { statement ->
+                statement.setString(1, token)
+                val result = statement.executeQuery()
+                val count = result.getInt("token_count")
+                Right(count != 0)
+            }
+    }
+
+    /**
+     * Invalidate token
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
+    override fun invalidateToken(token: String): Either<ModelException, Unit> = withConnection { connection ->
+        connection.prepareStatement("DELETE FROM valid_token WHERE token = ?").use { statement ->
+            statement.setString(1, token)
+            statement.executeUpdate()
             Right(Unit)
         }
+    }
+
+    /**
+     * Include token into the model to be tracked as valid
+     * I imagine invalid token cleanup would be done externally, like running aws lambda function every now and then.
+     * This would require an additional timeout column and an index build for it.
+     * @param token unique token to be tracked as valid
+     * @param expiresAt UNIX epoch timestamp that signifies expiration date of the token. Invalid tokens should be
+     * removed from database by something like aws lambda function every now and then
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
+    override fun approveToken(token: String, expiresAt: Long?): Either<ModelException, Unit> = withConnection { connection ->
+        connection.prepareStatement("INSERT INTO valid_token (token, exp) VALUES (?, ?)").use { statement ->
+            statement.setString(1, token)
+            if (expiresAt == null) statement.setNull(2, Types.INTEGER)
+            else statement.setLong(1, expiresAt)
+            statement.executeUpdate()
+            Right(Unit)
+        }
+    }
 
     /**
      * Erase all of the data from the model. **NOTE: USE REALLY CAREFULLY AND IN TESTS ONLY**
@@ -363,6 +510,8 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
     override fun clear(): Either<ModelException, Unit> = withConnection { connection ->
         connection.executeUpdate("DELETE FROM product")
         connection.executeUpdate("DELETE FROM product_group")
+        connection.executeUpdate("DELETE FROM user")
+        connection.executeUpdate("DELETE FROM valid_token")
         Right(Unit)
     }
 

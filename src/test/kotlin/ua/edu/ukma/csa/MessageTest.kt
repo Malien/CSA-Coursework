@@ -3,10 +3,10 @@ package ua.edu.ukma.csa
 import org.junit.jupiter.api.Test
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
+import ua.edu.ukma.csa.model.UserID
 import ua.edu.ukma.csa.network.Message
 import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.PacketException
-import ua.edu.ukma.csa.network.UserID
 import java.security.Key
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -26,7 +26,7 @@ class MessageTest {
 
     @Test
     fun decode() {
-        val message = Message.Decrypted(MessageType.OK, UserID.assign(), "hello".toByteArray())
+        val message = Message.Decrypted(MessageType.OK, UserID.UNSET, "hello".toByteArray())
         val decoded = Message.decode<Message.Decrypted>(message.data)
         assertRight(message, decoded)
         assertRight("hello", decoded.map { String(it.message) })

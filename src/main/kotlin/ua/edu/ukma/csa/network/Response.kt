@@ -7,6 +7,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.serializer
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
 import ua.edu.ukma.csa.model.ProductID
+import ua.edu.ukma.csa.model.UserID
 
 @Serializable
 sealed class Response() {
@@ -39,10 +40,10 @@ sealed class Response() {
 
 }
 
-inline fun <reified T : Response> T.toMessage(userID: UserID = UserID.SERVER) =
+inline fun <reified T : Response> T.toMessage(userID: UserID = UserID.UNSET) =
     serialize().map { Message.Decrypted(type, userID, message = it) }
 
-fun <T : Response> T.toMessage(userID: UserID = UserID.SERVER, serializer: KSerializer<T>) =
+fun <T : Response> T.toMessage(userID: UserID = UserID.UNSET, serializer: KSerializer<T>) =
     serialize(serializer).map { Message.Decrypted(type, userID, message = it) }
 
 @OptIn(ImplicitReflectionSerializer::class)

@@ -3,10 +3,7 @@ package ua.edu.ukma.csa.network
 import kotlinx.serialization.*
 import kotlinx.serialization.protobuf.ProtoBuf
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
-import ua.edu.ukma.csa.model.Criteria
-import ua.edu.ukma.csa.model.GroupID
-import ua.edu.ukma.csa.model.Orderings
-import ua.edu.ukma.csa.model.ProductID
+import ua.edu.ukma.csa.model.*
 
 @Serializable
 sealed class Request(@Transient val messageType: MessageType = MessageType.ERR) {
@@ -53,10 +50,10 @@ sealed class Request(@Transient val messageType: MessageType = MessageType.ERR) 
 
 }
 
-inline fun <reified T : Request> T.toMessage(userID: UserID = UserID.SERVER) =
+inline fun <reified T : Request> T.toMessage(userID: UserID = UserID.UNSET) =
     serialize().map { Message.Decrypted(messageType, userID, message = it) }
 
-fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: UserID = UserID.SERVER) =
+fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: UserID = UserID.UNSET) =
     serialize(serializer).map { Message.Decrypted(messageType, userID, message = it) }
 
 @OptIn(ImplicitReflectionSerializer::class)

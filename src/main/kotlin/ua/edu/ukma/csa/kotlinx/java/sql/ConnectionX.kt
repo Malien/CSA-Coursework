@@ -2,6 +2,7 @@ package ua.edu.ukma.csa.kotlinx.java.sql
 
 import org.intellij.lang.annotations.Language
 import java.sql.Connection
+import java.sql.ResultSet
 import java.sql.SQLException
 
 inline fun <T> Connection.transaction(transactionHandler: Connection.() -> T): T {
@@ -21,3 +22,5 @@ inline fun <T> Connection.transaction(transactionHandler: Connection.() -> T): T
 
 fun Connection.execute(@Language("SQL") sql: String) = createStatement().use { it.execute(sql) }
 fun Connection.executeUpdate(@Language("SQL") sql: String) = createStatement().use { it.executeUpdate(sql) }
+fun Connection.executeQuery(@Language("SQL") sql: String): ResultSet =
+    createStatement().use { it.executeQuery(sql) }

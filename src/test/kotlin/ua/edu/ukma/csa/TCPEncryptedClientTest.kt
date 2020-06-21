@@ -12,8 +12,8 @@ import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.Product
 import ua.edu.ukma.csa.model.ProductID
 import ua.edu.ukma.csa.model.SQLiteModel
+import ua.edu.ukma.csa.model.UserID
 import ua.edu.ukma.csa.network.FetchException
-import ua.edu.ukma.csa.network.UserID
 import ua.edu.ukma.csa.network.tcp.TCPClient
 import ua.edu.ukma.csa.network.tcp.TCPServer
 import ua.edu.ukma.csa.network.tcp.serve
@@ -44,7 +44,7 @@ class TCPEncryptedClientTest {
     private val client =
         TCPClient.Encrypted(
             InetSocketAddress(InetAddress.getLocalHost(), server.serverSocket.localPort),
-            UserID.assign(),
+            UserID.UNSET,
             key,
             cipherFactory()
         )

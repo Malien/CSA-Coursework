@@ -175,4 +175,5 @@ class SQLiteModelTest {
     fun addQuantityOfProductInvalidate() {
         assertLeftType<ModelException.ProductCanNotHaveThisCount>(model.addQuantityOfProduct(biscuit.id, -50))
     }
+
 }

@@ -131,6 +131,53 @@ interface ModelSource {
     fun setPrice(id: ProductID, price: Double): Either<ModelException, Unit>
 
     /**
+     * Register user in the model
+     * @param login unique login string
+     * @param password users plain-text password
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [User] otherwise
+     * if login does not match filter, [Left] of [ModelException.IllegalLoginCharacters] will be returned
+     * if password does not match filter, [Left] of [ModelException.Password] will be returned
+     */
+    fun addUser(login: String, password: String): Either<ModelException, User>
+
+    /**
+     * Retrieve user by it's id.
+     * @param id unique user id
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [User] otherwise
+     */
+    fun getUser(id: UserID): Either<ModelException, User>
+
+    /**
+     * retrieve user by it's login.
+     * @param login unique user login
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [User] otherwise
+     */
+    fun getUser(login: String): Either<ModelException, User>
+
+    /**
+     * Check if the token specified is valid in the model
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Boolean] otherwise
+     */
+    fun isTokenValid(token: String): Either<ModelException, Boolean>
+
+    /**
+     * Invalidate token
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
+    fun invalidateToken(token: String): Either<ModelException, Unit>
+
+    /**
+     * Include token into the model to be tracked as valid
+     * I imagine invalid token cleanup would be done externally, like running aws lambda function every now and then.
+     * This would require an additional timeout column and an index build for it.
+     * @param token unique token to be tracked as valid
+     * @param expiresAt UNIX epoch timestamp that signifies expiration date of the token. Invalid tokens should be
+     * removed from database by something like aws lambda function every now and then
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
+    fun approveToken(token: String, expiresAt: Long? = null): Either<ModelException, Unit>
+
+    /**
      * Clear all of the data from model. **NOTE: USE REALLY CAREFULLY AND FOR TESTS ONLY**
      * If model prohibits clears [ModelException] is returned or [Unit] otherwise
      */
