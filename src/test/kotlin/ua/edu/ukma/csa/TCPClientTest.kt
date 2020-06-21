@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import ua.edu.ukma.csa.api.serve
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
@@ -16,7 +17,6 @@ import ua.edu.ukma.csa.model.UserID
 import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.tcp.TCPClient
 import ua.edu.ukma.csa.network.tcp.TCPServer
-import ua.edu.ukma.csa.network.tcp.serve
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.concurrent.thread

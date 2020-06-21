@@ -3,19 +3,12 @@ package ua.edu.ukma.csa.api.routes
 import arrow.core.Left
 import arrow.core.Right
 import arrow.core.flatMap
-import kotlinx.serialization.Serializable
 import org.apache.commons.codec.digest.DigestUtils
 import ua.edu.ukma.csa.api.*
 import ua.edu.ukma.csa.api.RouteException.Companion.serverError
 import ua.edu.ukma.csa.model.ModelException
 import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.network.http.RouteHandler
-
-@Serializable
-data class LoginPayload(val login: String, val password: String) : RouteInput()
-
-@Serializable
-data class AccessToken(val accessToken: String) : RouteResponse(true)
 
 fun login(model: ModelSource, tokenSecret: String): RouteHandler = jsonRoute { _, (login, password): LoginPayload ->
     model.getUser(login)

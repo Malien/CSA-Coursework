@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import ua.edu.ukma.csa.api.serve
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
@@ -16,7 +17,6 @@ import ua.edu.ukma.csa.network.FetchException
 import ua.edu.ukma.csa.network.MessageType
 import ua.edu.ukma.csa.network.udp.UDPClient
 import ua.edu.ukma.csa.network.udp.UDPServer
-import ua.edu.ukma.csa.network.udp.serve
 import java.net.InetAddress
 import kotlin.concurrent.thread
 import kotlin.random.nextInt

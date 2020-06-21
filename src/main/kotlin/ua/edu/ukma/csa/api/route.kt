@@ -1,9 +1,10 @@
 package ua.edu.ukma.csa.api
 
-import Configuration.json
 import arrow.core.Either
+import arrow.core.Left
 import arrow.core.flatMap
 import kotlinx.serialization.*
+import ua.edu.ukma.csa.Configuration.json
 import ua.edu.ukma.csa.api.RouteException.Companion.serverError
 import ua.edu.ukma.csa.api.routes.login
 import ua.edu.ukma.csa.api.routes.root
@@ -16,10 +17,10 @@ import ua.edu.ukma.csa.network.http.RouteHandler
 import ua.edu.ukma.csa.network.http.Router
 
 @Serializable
-open class RouteInput
+sealed class RouteInput
 
 @Serializable
-open class RouteResponse(val ok: Boolean)
+sealed class RouteResponse(val ok: Boolean)
 
 @Serializable
 sealed class RouteException : RouteResponse(false) {
@@ -50,6 +51,31 @@ sealed class RouteException : RouteResponse(false) {
     }
 }
 
+@OptIn(ImplicitReflectionSerializer::class)
+inline fun <reified In: RouteInput, reified Err : RouteException, reified Res: RouteResponse> jsonRoute(
+    crossinline handler: (request: HTTPRequest, body: In) -> Either<Err, Res>
+): RouteHandler = { request ->
+    if (request.headers["Content-type"]?.contains("application/json") != true)
+        Left(RouteException.UserRequest("Expected content type of application/json"))
+    else {
+        val jsonString = String(request.body.readBytes())
+        json.fparse(In::class.serializer(), jsonString)
+            .mapLeft { RouteException.UserRequest("Cannot parse json") }
+            .flatMap { handler(request, it) }
+    }
+        .flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
+        .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
+        .json()
+        .close()
+}
+
+// Login route types
+@Serializable
+data class LoginPayload(val login: String, val password: String) : RouteInput()
+
+@Serializable
+data class AccessToken(val accessToken: String) : RouteResponse(true)
+
 fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     "/login" {
         post(login(model, tokenSecret))
@@ -59,19 +85,3 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     }
 }
 
-@OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified In: RouteInput, reified Err : RouteException, reified Res: RouteResponse> jsonRoute(
-    crossinline handler: (request: HTTPRequest, body: In) -> Either<Err, Res>
-): RouteHandler = { request ->
-    if (request.headers["Content-type"]?.contains("application/json") != true)
-        HTTPResponse.invalidRequest("Expected content type of application/json")
-    else {
-        val jsonString = String(request.body.readBytes())
-        json.fparse(In::class.serializer(), jsonString)
-            .mapLeft { RouteException.UserRequest("Cannot parse json") }
-            .flatMap { handler(request, it) }
-            .flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
-            .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
-            .json()
-    }
-}

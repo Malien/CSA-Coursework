@@ -15,7 +15,7 @@ import ua.edu.ukma.csa.model.UserID
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SQLiteUserTest {
 
-    private val model = SQLiteModel("database.db")
+    private val model = SQLiteModel(":memory:")
 
     @AfterAll
     fun closeDB() {

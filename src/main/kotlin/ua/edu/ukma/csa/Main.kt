@@ -1,3 +1,5 @@
+package ua.edu.ukma.csa
+
 import arrow.core.Either
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.findObject
