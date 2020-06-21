@@ -46,6 +46,6 @@ fun checkPassword(password: String): Either<ModelException.Password, String> {
 val loginRegex = Regex("""[\w_-]+""")
 
 fun checkLogin(login: String): Either<ModelException.IllegalLoginCharacters, String> {
-    if (loginRegex.matches(login)) return Left(ModelException.IllegalLoginCharacters())
+    if (!loginRegex.matches(login)) return Left(ModelException.IllegalLoginCharacters())
     return Right(login)
 }

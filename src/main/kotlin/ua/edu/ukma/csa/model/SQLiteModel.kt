@@ -9,7 +9,10 @@ import arrow.syntax.function.partially2
 import com.zaxxer.hikari.HikariDataSource
 import org.apache.commons.codec.digest.DigestUtils
 import ua.edu.ukma.csa.kotlinx.arrow.core.bind
-import ua.edu.ukma.csa.kotlinx.java.sql.*
+import ua.edu.ukma.csa.kotlinx.java.sql.execute
+import ua.edu.ukma.csa.kotlinx.java.sql.executeUpdate
+import ua.edu.ukma.csa.kotlinx.java.sql.iterator
+import ua.edu.ukma.csa.kotlinx.java.sql.transaction
 import ua.edu.ukma.csa.kotlinx.transformNotNull
 import java.io.Closeable
 import java.sql.*
@@ -74,7 +77,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS valid_token (
-                    token TEXT PRIMARY KEY NOT NULL
+                    token TEXT PRIMARY KEY NOT NULL,
                     exp INTEGER
                 ) WITHOUT ROWID
                 """
@@ -423,13 +426,15 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [User] otherwise
      */
     override fun getUser(id: UserID): Either<ModelException, User> = withConnection { connection ->
-        val result = connection.executeQuery("SELECT login, hash FROM user WHERE id = ${id.id}")
-        if (result.next()) {
-            val login = result.getString("login")
-            val hash = result.getString("hash")
-            Right(User(id, login, hash))
-        } else {
-            Left(ModelException.UserDoesNotExist(id))
+        connection.createStatement().use { statement ->
+            val result = statement.executeQuery("SELECT login, hash FROM user WHERE id = ${id.id}")
+            if (result.next()) {
+                val login = result.getString("login")
+                val hash = result.getString("hash")
+                Right(User(id, login, hash))
+            } else {
+                Left(ModelException.UserDoesNotExist(id))
+            }
         }
     }
 
@@ -505,6 +510,8 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
     override fun clear(): Either<ModelException, Unit> = withConnection { connection ->
         connection.executeUpdate("DELETE FROM product")
         connection.executeUpdate("DELETE FROM product_group")
+        connection.executeUpdate("DELETE FROM user")
+        connection.executeUpdate("DELETE FROM valid_token")
         Right(Unit)
     }
 
