@@ -6,8 +6,7 @@ import arrow.core.flatMap
 import kotlinx.serialization.*
 import ua.edu.ukma.csa.Configuration.json
 import ua.edu.ukma.csa.api.RouteException.Companion.serverError
-import ua.edu.ukma.csa.api.routes.login
-import ua.edu.ukma.csa.api.routes.root
+import ua.edu.ukma.csa.api.routes.*
 import ua.edu.ukma.csa.kotlinx.serialization.fparse
 import ua.edu.ukma.csa.kotlinx.serialization.fstringify
 import ua.edu.ukma.csa.model.ModelSource
@@ -51,8 +50,26 @@ sealed class RouteException : RouteResponse(false) {
     }
 }
 
+fun routerOf(model: ModelSource, tokenSecret: String) = Router {
+    "/login" {
+        post(login(model, tokenSecret))
+    }
+    "/" {
+        get(root)
+    }
+    "/api/good/:id"{
+        get(getProduct(model, tokenSecret))
+        //delete(deleteProduct(model, tokenSecret))
+    }
+    "/api/good"{
+       //put(putProduct(model))
+       //post(postProduct(model))
+
+    }
+}
+
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified In: RouteInput, reified Err : RouteException, reified Res: RouteResponse> jsonRoute(
+inline fun <reified In : RouteInput, reified Err : RouteException, reified Res : RouteResponse> jsonRoute(
     crossinline handler: (request: HTTPRequest, body: In) -> Either<Err, Res>
 ): RouteHandler = { request ->
     if (request.headers["Content-type"]?.contains("application/json") != true)
@@ -80,8 +97,4 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     "/login" {
         post(login(model, tokenSecret))
     }
-    "/" {
-        get(root)
-    }
 }
-

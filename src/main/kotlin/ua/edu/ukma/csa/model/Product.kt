@@ -19,10 +19,12 @@ data class ProductID(val id: Int) {
 
 @Serializable
 data class Product(
+    @Required
     val id: ProductID = ProductID.UNSET,
     val name: String,
     val count: Int = 0,
     val price: Double,
+    @Required
     val groups: Set<GroupID> = emptySet()
 ) {
     override fun equals(other: Any?): Boolean {
