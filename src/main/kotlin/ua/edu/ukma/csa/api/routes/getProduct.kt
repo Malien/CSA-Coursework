@@ -1,7 +1,7 @@
 package ua.edu.ukma.csa.api.routes
 
-import Configuration.json
 import arrow.core.Either
+import ua.edu.ukma.csa.Configuration.json
 import ua.edu.ukma.csa.api.verifyToken
 import ua.edu.ukma.csa.model.ModelException
 import ua.edu.ukma.csa.model.ModelSource
@@ -9,10 +9,9 @@ import ua.edu.ukma.csa.model.Product
 import ua.edu.ukma.csa.model.ProductID
 import ua.edu.ukma.csa.network.http.HTTPResponse
 import ua.edu.ukma.csa.network.http.RouteHandler
-import java.lang.NumberFormatException
 
 fun getProduct(model: ModelSource, tokenSecret: String): RouteHandler = fun(request): HTTPResponse {
-    val token = request.headers["Authorization"]!!.first() ?: return HTTPResponse.unauthorized()
+    val token = request.headers["Authorization"]?.first() ?: return HTTPResponse.unauthorized()
     val userID = model.verifyToken(token, tokenSecret)
     if (userID is Either.Left) return HTTPResponse.unauthorized()
 

@@ -6,7 +6,9 @@ import arrow.core.flatMap
 import kotlinx.serialization.*
 import ua.edu.ukma.csa.Configuration.json
 import ua.edu.ukma.csa.api.RouteException.Companion.serverError
-import ua.edu.ukma.csa.api.routes.*
+import ua.edu.ukma.csa.api.routes.getProduct
+import ua.edu.ukma.csa.api.routes.login
+import ua.edu.ukma.csa.api.routes.root
 import ua.edu.ukma.csa.kotlinx.serialization.fparse
 import ua.edu.ukma.csa.kotlinx.serialization.fstringify
 import ua.edu.ukma.csa.model.ModelSource
@@ -92,9 +94,3 @@ data class LoginPayload(val login: String, val password: String) : RouteInput()
 
 @Serializable
 data class AccessToken(val accessToken: String) : RouteResponse(true)
-
-fun routerOf(model: ModelSource, tokenSecret: String) = Router {
-    "/login" {
-        post(login(model, tokenSecret))
-    }
-}

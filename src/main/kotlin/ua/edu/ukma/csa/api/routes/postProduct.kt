@@ -1,7 +1,7 @@
 package ua.edu.ukma.csa.api.routes
 
-import Configuration.json
 import kotlinx.serialization.Serializable
+import ua.edu.ukma.csa.Configuration.json
 import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.network.http.HTTPResponse
 import ua.edu.ukma.csa.network.http.RouteHandler
