@@ -47,5 +47,5 @@ val loginRegex = Regex("""[\w_-]+""")
 
 fun checkLogin(login: String): Either<ModelException.IllegalLoginCharacters, String> {
     if (!loginRegex.matches(login)) return Left(ModelException.IllegalLoginCharacters())
-    return Right(login)
+    return Right(login.toLowerCase())
 }

@@ -406,7 +406,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
                                 "INSERT INTO user (login, hash) VALUES (?, ?)",
                                 Statement.RETURN_GENERATED_KEYS
                             ).use { statement ->
-                                statement.setString(1, login)
+                                statement.setString(1, login.toLowerCase())
                                 statement.setString(2, hash)
                                 statement.executeUpdate()
                                 statement.generatedKeys.use { keys ->
@@ -445,7 +445,7 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      */
     override fun getUser(login: String): Either<ModelException, User> = withConnection { connection ->
         connection.prepareStatement("SELECT id, hash FROM user WHERE login = ?").use { statement ->
-            statement.setString(1, login)
+            statement.setString(1, login.toLowerCase())
             val result = statement.executeQuery()
             if (result.next()) {
                 val id = result.getInt("id")
