@@ -38,12 +38,17 @@ sealed class RouteException : RouteResponse(false) {
     @SerialName("server")
     data class ServerError(val message: String? = null) : RouteException()
 
+    @Serializable
+    @SerialName("unauthorized")
+    data class Unauthorized(val message: String? = null) : RouteException()
+
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
         return when (this) {
             is UserRequest -> HTTPResponse.invalidRequest(string)
             is CredentialMismatch -> HTTPResponse.unauthorized(string)
             is ServerError -> HTTPResponse.serverError(string)
+            is Unauthorized -> HTTPResponse.unauthorized(string)
         }
     }
 
@@ -85,7 +90,6 @@ inline fun <reified In : RouteInput, reified Err : RouteException, reified Res :
         .flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
         .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
         .json()
-        .close()
 }
 
 // Login route types

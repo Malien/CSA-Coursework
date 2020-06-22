@@ -8,6 +8,7 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTCreationException
 import com.auth0.jwt.exceptions.JWTVerificationException
+import com.sun.net.httpserver.Headers
 import ua.edu.ukma.csa.kotlinx.java.util.unixEpoch
 import ua.edu.ukma.csa.model.ModelException
 import ua.edu.ukma.csa.model.ModelSource
@@ -31,6 +32,16 @@ sealed class TokenException : RuntimeException {
         TokenException("Error occurred in the model", exception)
 
     class InvalidToken(message: String) : TokenException(message)
+}
+
+fun ModelSource.authorizeHeaders(headers: Headers, tokenSecret: String): Either<RouteException, UserID> {
+    val authHeader =
+        headers["Authorization"]?.first() ?: return Left(RouteException.Unauthorized("Token is not present"))
+    val split = authHeader.split(" ")
+    if (split.size != 2) return Left(RouteException.Unauthorized("Invalid authorization header"))
+    val (bearer, token) = split
+    if (bearer.toLowerCase() != "bearer") return Left(RouteException.Unauthorized("Invalid authorization header"))
+    return verifyToken(token, tokenSecret).mapLeft { RouteException.Unauthorized(it.message) }
 }
 
 fun ModelSource.createToken(
