@@ -7,13 +7,13 @@ import kotlinx.serialization.*
 data class GroupID(val id: Int) {
     override fun toString() = "GroupID($id)"
 
-    @Serializer(forClass = ProductID::class)
-    companion object : KSerializer<ProductID> {
+    @Serializer(forClass = GroupID::class)
+    companion object : KSerializer<GroupID> {
         val UNSET = GroupID(0)
 
-        override val descriptor = PrimitiveDescriptor("ProductID", PrimitiveKind.STRING)
-        override fun deserialize(decoder: Decoder) = ProductID(decoder.decodeInt())
-        override fun serialize(encoder: Encoder, value: ProductID) { encoder.encodeInt(value.id) }
+        override val descriptor = PrimitiveDescriptor("GroupID", PrimitiveKind.INT)
+        override fun deserialize(decoder: Decoder) = GroupID(decoder.decodeInt())
+        override fun serialize(encoder: Encoder, value: GroupID) { encoder.encodeInt(value.id) }
     }
 }
 

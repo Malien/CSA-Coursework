@@ -1,18 +1,15 @@
 package ua.edu.ukma.csa.api.routes
 
 import arrow.core.Either
-import ua.edu.ukma.csa.api.verifyToken
+import ua.edu.ukma.csa.api.authorizeHeaders
 import ua.edu.ukma.csa.model.ModelException
 import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.model.ProductID
 import ua.edu.ukma.csa.network.http.HTTPResponse
 import ua.edu.ukma.csa.network.http.RouteHandler
-import java.lang.NumberFormatException
 
 fun deleteProduct(model: ModelSource, tokenSecret: String): RouteHandler = fun(request): HTTPResponse {
-    val token = request.headers["Authorization"]!!.first() ?: return HTTPResponse.unauthorized()
-
-    val userID = model.verifyToken(token, tokenSecret)
+    val userID = model.authorizeHeaders(request.headers, tokenSecret)
     if (userID is Either.Left) return HTTPResponse.unauthorized()
 
     val id = try {

@@ -7,6 +7,7 @@ import arrow.core.flatMap
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTCreationException
+import com.auth0.jwt.exceptions.JWTDecodeException
 import com.auth0.jwt.exceptions.JWTVerificationException
 import com.sun.net.httpserver.Headers
 import ua.edu.ukma.csa.kotlinx.java.util.unixEpoch
@@ -80,6 +81,8 @@ fun ModelSource.verifyToken(token: String, tokenSecret: String): Either<TokenExc
         else Right(UserID(id))
     } catch (e: JWTVerificationException) {
         Left(TokenException.Validation(e))
+    } catch (e: IllegalArgumentException) {
+        Left(TokenException.Validation(JWTDecodeException(e.message, e)))
     }.flatMap { userID ->
         isTokenValid(token)
             .map { userID }

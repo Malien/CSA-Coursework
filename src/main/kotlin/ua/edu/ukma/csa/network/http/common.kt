@@ -75,8 +75,14 @@ data class HTTPResponse(
         fun ok(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
             HTTPResponse(200, headers, body)
 
+        fun conflict(body: String, headers: Headers = Headers()) =
+            conflict(body.toByteArray(), headers)
+
+        fun conflict(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
+            HTTPResponse(209, headers, body)
+
         fun noContent(body: String, headers: Headers = Headers()) =
-            invalidRequest(body.toByteArray(), headers)
+            noContent(body.toByteArray(), headers)
 
         fun noContent(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
             HTTPResponse(204, headers, body)

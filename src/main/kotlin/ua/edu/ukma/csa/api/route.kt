@@ -6,15 +6,14 @@ import arrow.core.flatMap
 import kotlinx.serialization.*
 import ua.edu.ukma.csa.Configuration.json
 import ua.edu.ukma.csa.api.RouteException.Companion.serverError
-import ua.edu.ukma.csa.api.routes.getProduct
-import ua.edu.ukma.csa.api.routes.login
-import ua.edu.ukma.csa.api.routes.root
+import ua.edu.ukma.csa.api.routes.*
 import ua.edu.ukma.csa.kotlinx.serialization.fparse
 import ua.edu.ukma.csa.kotlinx.serialization.fstringify
+import ua.edu.ukma.csa.model.GroupID
 import ua.edu.ukma.csa.model.ModelSource
+import ua.edu.ukma.csa.model.Product
 import ua.edu.ukma.csa.network.http.HTTPRequest
 import ua.edu.ukma.csa.network.http.HTTPResponse
-import ua.edu.ukma.csa.network.http.RouteHandler
 import ua.edu.ukma.csa.network.http.Router
 
 @Serializable
@@ -42,6 +41,10 @@ sealed class RouteException : RouteResponse(false) {
     @SerialName("unauthorized")
     data class Unauthorized(val message: String? = null) : RouteException()
 
+    @Serializable
+    @SerialName("conflict")
+    data class Conflict(val message: String? = null): RouteException()
+
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
         return when (this) {
@@ -49,6 +52,7 @@ sealed class RouteException : RouteResponse(false) {
             is CredentialMismatch -> HTTPResponse.unauthorized(string)
             is ServerError -> HTTPResponse.serverError(string)
             is Unauthorized -> HTTPResponse.unauthorized(string)
+            is Conflict -> HTTPResponse.conflict(string)
         }
     }
 
@@ -66,31 +70,29 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     }
     "/api/good/:id"{
         get(getProduct(model, tokenSecret))
-        //delete(deleteProduct(model, tokenSecret))
+        delete(deleteProduct(model, tokenSecret))
     }
     "/api/good"{
-       //put(putProduct(model))
-       //post(postProduct(model))
-
+        put(putProduct(model, tokenSecret))
+        //post(postProduct(model))
     }
 }
 
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified In : RouteInput, reified Err : RouteException, reified Res : RouteResponse> jsonRoute(
-    crossinline handler: (request: HTTPRequest, body: In) -> Either<Err, Res>
-): RouteHandler = { request ->
-    if (request.headers["Content-type"]?.contains("application/json") != true)
+inline fun <reified In : RouteInput, reified Err : RouteException, reified Res : RouteResponse> HTTPRequest.jsonRoute(
+    crossinline handler: (body: In) -> Either<Err, Res>
+) =
+    if (headers["Content-type"]?.contains("application/json") != true)
         Left(RouteException.UserRequest("Expected content type of application/json"))
     else {
-        val jsonString = String(request.body.readBytes())
+        val jsonString = String(body.readBytes())
         json.fparse(In::class.serializer(), jsonString)
             .mapLeft { RouteException.UserRequest("Cannot parse json") }
-            .flatMap { handler(request, it) }
+            .flatMap { handler(it) }
     }
         .flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
         .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
         .json()
-}
 
 // Login route types
 @Serializable
@@ -98,3 +100,15 @@ data class LoginPayload(val login: String, val password: String) : RouteInput()
 
 @Serializable
 data class AccessToken(val accessToken: String) : RouteResponse(true)
+
+// Put product route types
+@Serializable
+data class PutGoodRequest(
+    val name: String,
+    val price: Double,
+    val count: Int = 0,
+    val groups: Set<GroupID> = emptySet()
+) : RouteInput()
+
+@Serializable
+data class PushedGood(val product: Product) : RouteResponse(true)
