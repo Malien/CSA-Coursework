@@ -131,6 +131,23 @@ interface ModelSource {
     fun setPrice(id: ProductID, price: Double): Either<ModelException, Unit>
 
     /**
+     * Update whole product
+     * @param id [ProductID] of a product which should be updated
+     * @param name new name of the product. If not set, name will not be changed. _Defaults to `null`_
+     * @param price new price of the product. If not set, price will not be changed. _Defaults to `null`_
+     * @param count new product count. If not set, count will not be changed. _Defaults to `null`_
+     * @param groups new set of groups, product is assigned to. _Defaults to `null`_
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
+    fun updateProduct(
+        id: ProductID,
+        name: String? = null,
+        price: Double? = null,
+        count: Int? = null,
+        groups: Set<GroupID>? = null
+    ): Either<ModelException, Unit>
+
+    /**
      * Register user in the model
      * @param login unique login string
      * @param password users plain-text password
