@@ -190,36 +190,24 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         count < 0 -> Left(ModelException.ProductCanNotHaveThisCount(count))
         price < 0 -> Left(ModelException.ProductCanNotHaveThisPrice(price))
         // Wrap everything in a transaction
-        else -> withConnection { connection ->
-            connection.transaction {
-                // Check if all of the groups to be added to product exist
-                groupsExist(connection, groups).flatMap {
-                    val productInsertStatement = connection.prepareStatement(
-                        "INSERT INTO product (name, count, price) VALUES (?,?,?)",
-                        Statement.RETURN_GENERATED_KEYS
-                    )
-                    productInsertStatement.setString(1, name)
-                    productInsertStatement.setInt(2, count)
-                    productInsertStatement.setDouble(3, price)
-                    productInsertStatement.executeUpdate()
-                    val id = productInsertStatement.generatedKeys.use { keys ->
-                        keys.next()
-                        keys.getInt(1)
-                    }
-
-                    if (groups.isNotEmpty()) {
-                        createStatement().use { statement ->
-                            statement.executeUpdate(
-                                """
-                                INSERT INTO product_product_group (productID, groupID) 
-                                VALUES ${groups.joinToString { "($id, ${it.id})" }}
-                                """
-                            )
-                        }
-                    }
-                    Right(Product(ProductID(id), name, count, price, groups))
-
+        else -> withTransaction { connection ->
+            // Check if all of the groups to be added to product exist
+            groupsExist(connection, groups).flatMap {
+                val productInsertStatement = connection.prepareStatement(
+                    "INSERT INTO product (name, count, price) VALUES (?,?,?)",
+                    Statement.RETURN_GENERATED_KEYS
+                )
+                productInsertStatement.setString(1, name)
+                productInsertStatement.setInt(2, count)
+                productInsertStatement.setDouble(3, price)
+                productInsertStatement.executeUpdate()
+                val id = productInsertStatement.generatedKeys.use { keys ->
+                    keys.next()
+                    keys.getInt(1)
                 }
+
+                assignGroups(connection, ProductID(id), groups)
+                Right(Product(ProductID(id), name, count, price, groups))
             }
         }
     }
@@ -264,32 +252,30 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
     override fun addGroup(name: String): Either<ModelException, Group> =
-        withConnection { connection ->
-            connection.transaction {
-                connection.prepareStatement(
-                    "SELECT id FROM product_group WHERE name = ? LIMIT 1"
+        withTransaction { connection ->
+            connection.prepareStatement(
+                "SELECT id FROM product_group WHERE name = ? LIMIT 1"
+            ).use { statement ->
+                statement.setString(1, name)
+                val result = statement.executeQuery()
+                if (result.next()) {
+                    val id = result.getInt("id")
+                    Left(ModelException.GroupAlreadyExists(GroupID(id)))
+                } else Right(Unit)
+            }.map {
+                val id = connection.prepareStatement(
+                    "INSERT INTO product_group (name) VALUES (?)",
+                    Statement.RETURN_GENERATED_KEYS
                 ).use { statement ->
                     statement.setString(1, name)
-                    val result = statement.executeQuery()
-                    if (result.next()) {
-                        val id = result.getInt("id")
-                        Left(ModelException.GroupAlreadyExists(GroupID(id)))
-                    } else Right(Unit)
-                }.map {
-                    val id = connection.prepareStatement(
-                        "INSERT INTO product_group (name) VALUES (?)",
-                        Statement.RETURN_GENERATED_KEYS
-                    ).use { statement ->
-                        statement.setString(1, name)
-                        statement.executeUpdate()
-                        statement.generatedKeys.use { keys ->
-                            keys.next()
-                            keys.getInt(1)
-                        }
+                    statement.executeUpdate()
+                    statement.generatedKeys.use { keys ->
+                        keys.next()
+                        keys.getInt(1)
                     }
-
-                    Group(GroupID(id), name)
                 }
+
+                Group(GroupID(id), name)
             }
         }
 
@@ -301,49 +287,49 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
      * if product does not exist, [Left] of [ModelException.ProductDoesNotExist] will be returned
      */
-    override fun assignGroup(productID: ProductID, groupID: GroupID): Either<ModelException, Unit> =
-        withConnection { connection ->
-            connection.transaction {
-                connection.prepareStatement(
-                    """
-                        SELECT count(*) AS assigned_count 
-                        FROM product_product_group 
-                        WHERE product_id = ? AND group_id = ?
-                        """
-                ).use { statement ->
-                    statement.setInt(1, productID.id)
-                    statement.setInt(2, groupID.id)
+    override fun assignGroup(
+        productID: ProductID,
+        groupID: GroupID
+    ): Either<ModelException, Unit> = withTransaction { connection ->
+        connection.prepareStatement(
+            """
+            SELECT count(*) AS assigned_count 
+            FROM product_product_group 
+            WHERE product_id = ? AND group_id = ?
+            """
+        ).use { statement ->
+            statement.setInt(1, productID.id)
+            statement.setInt(2, groupID.id)
+            val result = statement.executeQuery()
+            val count = result.getInt("assigned_count")
+            if (count != 0) Left(ModelException.ProductAlreadyInGroup(productID, groupID))
+            else Right(Unit)
+        }.flatMap {
+            connection.prepareStatement("SELECT id FROM product_group WHERE id = ?")
+                .use { statement ->
+                    statement.setInt(1, groupID.id)
                     val result = statement.executeQuery()
-                    val count = result.getInt("assigned_count")
-                    if (count != 0) Left(ModelException.ProductAlreadyInGroup(productID, groupID))
-                    else Right(Unit)
-                }.flatMap {
-                    connection.prepareStatement("SELECT id FROM product_group WHERE id = ?")
-                        .use { statement ->
-                            statement.setInt(1, groupID.id)
-                            val result = statement.executeQuery()
-                            if (result.next()) Right(Unit)
-                            else Left(ModelException.GroupDoesNotExist(groupID))
-                        }
-                }.flatMap {
-                    connection.prepareStatement("SELECT id FROM product WHERE id = ?").use { statement ->
-                        statement.setInt(1, productID.id)
-                        val result = statement.executeQuery()
-                        if (result.next()) Right(Unit)
-                        else Left(ModelException.ProductDoesNotExist(productID))
-                    }
-                }.map {
-                    connection.prepareStatement(
-                        "INSERT INTO product_product_group (product_id, group_id) VALUES (?,?)"
-                    ).use { statement ->
-                        statement.setInt(1, productID.id)
-                        statement.setInt(2, groupID.id)
-                        statement.executeUpdate()
-                        Unit
-                    }
+                    if (result.next()) Right(Unit)
+                    else Left(ModelException.GroupDoesNotExist(groupID))
                 }
+        }.flatMap {
+            connection.prepareStatement("SELECT id FROM product WHERE id = ?").use { statement ->
+                statement.setInt(1, productID.id)
+                val result = statement.executeQuery()
+                if (result.next()) Right(Unit)
+                else Left(ModelException.ProductDoesNotExist(productID))
+            }
+        }.map {
+            connection.prepareStatement(
+                "INSERT INTO product_product_group (product_id, group_id) VALUES (?,?)"
+            ).use { statement ->
+                statement.setInt(1, productID.id)
+                statement.setInt(2, groupID.id)
+                statement.executeUpdate()
+                Unit
             }
         }
+    }
 
     /**
      * Update the price of product in the model
@@ -384,53 +370,42 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
     ): Either<ModelException, Unit> = when {
         price != null && price < 0 -> Left(ModelException.ProductCanNotHaveThisPrice(price))
         count != null && count < 0 -> Left(ModelException.ProductCanNotHaveThisCount(count))
-        else -> withConnection { connection ->
-            connection.transaction {
-                if (groups != null) {
-                    groupsExist(connection, groups).map {
-                        createStatement().use { statement ->
-                            statement.executeUpdate("DELETE FROM product_product_group WHERE product_id = ${id.id}")
-                        }
-                        if (groups.isNotEmpty()) {
-                            createStatement().use { statement ->
-                                statement.executeUpdate(
-                                    """
-                                    INSERT INTO product_product_group (productID, groupID) 
-                                    VALUES ${groups.joinToString { "($id, ${it.id})" }}
-                                    """
-                                )
-                            }
-                        }
+        else -> withTransaction { connection ->
+            if (groups != null) {
+                groupsExist(connection, groups).map {
+                    connection.createStatement().use { statement ->
+                        statement.executeUpdate("DELETE FROM product_product_group WHERE product_id = ${id.id}")
                     }
-                } else {
-                    Right(Unit)
-                }.flatMap {
-                    val updateClause = listOfNotNull(
-                        name.transformNotNull { "name = ?" },
-                        price.transformNotNull { "price = ?" },
-                        count.transformNotNull { "count = ?" }
-                    )
-                    if (updateClause.isNotEmpty()) {
-                        connection.prepareStatement("UPDATE product WHERE id = ? SET ${updateClause.joinToString()}")
-                            .use { statement ->
-                                statement.setInt(1, id.id)
-                                var idx = 2
-                                if (name != null) {
-                                    statement.setString(idx, name)
-                                    idx += 1
-                                }
-                                if (price != null) {
-                                    statement.setDouble(idx, price)
-                                    idx += 1
-                                }
-                                if (count != null) {
-                                    statement.setInt(idx, count)
-                                }
-                                statement.executeUpdate()
-                            }
-                        Right(Unit)
-                    } else Right(Unit)
+                    assignGroups(connection, id, groups)
                 }
+            } else {
+                Right(Unit)
+            }.flatMap {
+                val updateClause = listOfNotNull(
+                    name.transformNotNull { "name = ?" },
+                    price.transformNotNull { "price = ?" },
+                    count.transformNotNull { "count = ?" }
+                )
+                if (updateClause.isNotEmpty()) {
+                    connection.prepareStatement(
+                        "UPDATE product SET ${updateClause.joinToString()} WHERE id = ${id.id}"
+                    ).use { statement ->
+                        var idx = 1
+                        if (name != null) {
+                            statement.setString(idx, name)
+                            idx += 1
+                        }
+                        if (price != null) {
+                            statement.setDouble(idx, price)
+                            idx += 1
+                        }
+                        if (count != null) {
+                            statement.setInt(idx, count)
+                        }
+                        statement.executeUpdate()
+                    }
+                    Right(Unit)
+                } else Right(Unit)
             }
         }
     }
@@ -447,31 +422,30 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         checkLogin(login).flatMap {
             checkPassword(password)
         }.flatMap {
-            withConnection { connection ->
-                connection.transaction {
-                    connection.prepareStatement("SELECT count(*) AS user_count FROM user WHERE login = ?")
-                        .use { statement ->
-                            statement.setString(1, login)
-                            val result = statement.executeQuery()
-                            val count = result.getInt("user_count")
-                            if (count != 0) Left(ModelException.UserLoginAlreadyExists(login))
-                            else Right(Unit)
-                        }.flatMap {
-                            val hash = DigestUtils.md5Hex(password)
-                            val id = connection.prepareStatement(
-                                "INSERT INTO user (login, hash) VALUES (?, ?)",
-                                Statement.RETURN_GENERATED_KEYS
-                            ).use { statement ->
-                                statement.setString(1, login.toLowerCase())
-                                statement.setString(2, hash)
-                                statement.executeUpdate()
-                                statement.generatedKeys.use { keys ->
-                                    keys.next()
-                                    keys.getInt(1)
-                                }
-                            }
-                            Right(User(UserID(id), login, hash))
+            withTransaction { connection ->
+                connection.prepareStatement(
+                    "SELECT count(*) AS user_count FROM user WHERE login = ?"
+                ).use { statement ->
+                    statement.setString(1, login)
+                    val result = statement.executeQuery()
+                    val count = result.getInt("user_count")
+                    if (count != 0) Left(ModelException.UserLoginAlreadyExists(login))
+                    else Right(Unit)
+                }.flatMap {
+                    val hash = DigestUtils.md5Hex(password)
+                    val id = connection.prepareStatement(
+                        "INSERT INTO user (login, hash) VALUES (?, ?)",
+                        Statement.RETURN_GENERATED_KEYS
+                    ).use { statement ->
+                        statement.setString(1, login.toLowerCase())
+                        statement.setString(2, hash)
+                        statement.executeUpdate()
+                        statement.generatedKeys.use { keys ->
+                            keys.next()
+                            keys.getInt(1)
                         }
+                    }
+                    Right(User(UserID(id), login, hash))
                 }
             }
         }
@@ -584,6 +558,10 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         Left(ModelException.SQL(e))
     }
 
+    private inline fun <T> withTransaction(
+        block: (connection: Connection) -> Either<ModelException, T>
+    ) = withConnection { it.transaction(block) }
+
     companion object {
         fun preparedSQLOffset(offset: Int?) = offset.transformNotNull { "OFFSET ?" }
         fun preparedSQLLimit(amount: Int?) = amount.transformNotNull { "LIMIT ?" }
@@ -647,5 +625,18 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
                 if (missingGroups.isNotEmpty()) Left(ModelException.GroupsNotPresent(missingGroups))
                 else Right(Unit)
             }
+
+        private fun assignGroups(connection: Connection, id: ProductID, groups: Set<GroupID>) {
+            if (groups.isNotEmpty()) {
+                connection.createStatement().use { statement ->
+                    statement.executeUpdate(
+                        """
+                        INSERT INTO product_product_group (product_id, group_id) 
+                        VALUES ${groups.joinToString { "(${id.id}, ${it.id})" }}
+                        """
+                    )
+                }
+            }
+        }
     }
 }

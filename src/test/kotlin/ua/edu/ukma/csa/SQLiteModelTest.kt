@@ -18,7 +18,7 @@ class SQLiteModelTest {
     private lateinit var conditioner: Product
     private lateinit var iceCream: Product
 
-    private val model = SQLiteModel(":memory:")
+    private val model = SQLiteModel("test.db")
 
     private lateinit var sweets: Group
     private lateinit var cosmetics: Group
@@ -174,6 +174,32 @@ class SQLiteModelTest {
     @Test
     fun addQuantityOfProductInvalidate() {
         assertLeftType<ModelException.ProductCanNotHaveThisCount>(model.addQuantityOfProduct(biscuit.id, -50))
+    }
+
+    @Test
+    fun updateProduct() {
+        model.updateProduct(biscuit.id, name = "Not biscuit", price = 1.2, count = 5).handleWithThrow()
+        val updatedProduct = model.getProduct(biscuit.id)
+
+        assertRight("Not biscuit", updatedProduct.map { it.name })
+        assertRight(1.2, updatedProduct.map { it.price })
+        assertRight(5, updatedProduct.map { it.count })
+
+        val groupSet = setOf(sweets.id, diary.id)
+        model.updateProduct(biscuit.id, name = "Biscuit again", groups = groupSet).handleWithThrow()
+        val withGroups = model.getProduct(biscuit.id)
+
+        assertRight(groupSet, withGroups.map { it.groups })
+        assertRight("Biscuit again", withGroups.map { it.name })
+
+        val emptyGroup = emptySet<GroupID>()
+        model.updateProduct(biscuit.id, groups = emptyGroup).handleWithThrow()
+        val reset = model.getProduct(biscuit.id)
+
+        assertRight(emptyGroup, reset.map { it.groups })
+        assertRight("Biscuit again", reset.map { it.name })
+        assertRight(1.2, reset.map { it.price })
+        assertRight(5, reset.map { it.count })
     }
 
 }
