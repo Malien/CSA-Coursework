@@ -54,6 +54,10 @@ sealed class RouteException : RouteResponse(false) {
     @SerialName("not found")
     data class NotFound(val message: String? = null) : RouteException()
 
+    @Serializable
+    @SerialName("ok")
+    data class OK(val message: String? = null) : RouteException()
+
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
         return when (this) {
@@ -64,6 +68,7 @@ sealed class RouteException : RouteResponse(false) {
             is Conflict -> HTTPResponse.conflict(string)
             is NoContent -> HTTPResponse.noContent(string)
             is NotFound -> HTTPResponse.notFound()
+            is OK->HTTPResponse.ok()
         }
     }
 
