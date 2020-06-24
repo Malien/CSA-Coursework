@@ -200,6 +200,7 @@ class Router(
             try {
                 handler.handler(matched)
             } catch (e: Exception) {
+                e.printStackTrace()
                 HTTPResponse(statusCode = 500)
             }
         }
