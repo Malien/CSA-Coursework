@@ -73,6 +73,9 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
         get(getProduct(model, tokenSecret))
         delete(deleteProduct(model, tokenSecret))
     }
+    "/api/goods" {
+        get(getProducts(model, tokenSecret))
+    }
     "/api/good"{
         put(putProduct(model, tokenSecret))
         //post(postProduct(model))
@@ -80,8 +83,8 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
 }
 
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified In : RouteInput, reified Err : RouteException, reified Res : RouteResponse> HTTPRequest.jsonRoute(
-    crossinline handler: (body: In) -> Either<Err, Res>
+inline fun <reified In : RouteInput, reified Res: RouteResponse> HTTPRequest.jsonRoute(
+    crossinline handler: (body: In) -> Either<RouteException, Res>
 ) =
     if (headers["Content-type"]?.contains("application/json") != true)
         Left(RouteException.UserRequest("Expected content type of application/json"))
@@ -90,8 +93,11 @@ inline fun <reified In : RouteInput, reified Err : RouteException, reified Res :
         json.fparse(In::class.serializer(), jsonString)
             .mapLeft { RouteException.UserRequest("Cannot parse json") }
             .flatMap { handler(it) }
-    }
-        .flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
+    }.toJsonResponse()
+
+@OptIn(ImplicitReflectionSerializer::class)
+inline fun <reified Res: RouteResponse> Either<RouteException, Res>.toJsonResponse() =
+    flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
         .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
         .json()
 
