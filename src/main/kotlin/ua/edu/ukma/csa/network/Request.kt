@@ -1,7 +1,7 @@
 package ua.edu.ukma.csa.network
 
 import kotlinx.serialization.*
-import kotlinx.serialization.protobuf.ProtoBuf
+import ua.edu.ukma.csa.Configuration.protobuf
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
 import ua.edu.ukma.csa.model.*
 
@@ -58,7 +58,7 @@ fun <T : Request> T.toMessage(serializer: SerializationStrategy<T>, userID: User
 
 @OptIn(ImplicitReflectionSerializer::class)
 inline fun <reified T : Request> T.serialize() =
-    ProtoBuf.fdump(T::class.serializer(), this)
+    protobuf.fdump(T::class.serializer(), this)
 
 fun <T : Request> T.serialize(serializer: SerializationStrategy<T>) =
-    ProtoBuf.fdump(serializer, this)
+    protobuf.fdump(serializer, this)

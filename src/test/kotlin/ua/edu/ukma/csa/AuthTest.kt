@@ -106,7 +106,6 @@ class AuthTest {
         val message: RouteResponse = response.receive()
         assertFalse(message.ok)
         assertTrue(message is RouteException.UserRequest)
-        client.close()
     }
 
 }

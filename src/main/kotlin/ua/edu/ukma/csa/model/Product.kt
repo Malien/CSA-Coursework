@@ -22,6 +22,7 @@ data class Product(
     @Required
     val id: ProductID = ProductID.UNSET,
     val name: String,
+    @Required
     val count: Int = 0,
     val price: Double,
     @Required
