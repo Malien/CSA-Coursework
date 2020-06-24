@@ -20,7 +20,7 @@ import ua.edu.ukma.csa.network.http.Router
 sealed class RouteInput
 
 @Serializable
-sealed class RouteResponse(@Required val ok: Boolean = true)
+sealed class RouteResponse(val ok: Boolean)
 
 @Serializable
 sealed class RouteException : RouteResponse(false) {
@@ -43,7 +43,7 @@ sealed class RouteException : RouteResponse(false) {
 
     @Serializable
     @SerialName("conflict")
-    data class Conflict(val message: String? = null) : RouteException()
+    data class Conflict(val message: String? = null): RouteException()
 
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
@@ -73,9 +73,6 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
         get(getProduct(model, tokenSecret))
         delete(deleteProduct(model, tokenSecret))
     }
-    "/api/goods" {
-        get(getProducts(model, tokenSecret))
-    }
     "/api/good"{
         put(putProduct(model, tokenSecret))
         //post(postProduct(model))
@@ -83,8 +80,8 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
 }
 
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified In : RouteInput, reified Res: RouteResponse> HTTPRequest.jsonRoute(
-    crossinline handler: (body: In) -> Either<RouteException, Res>
+inline fun <reified In : RouteInput, reified Err : RouteException, reified Res : RouteResponse> HTTPRequest.jsonRoute(
+    crossinline handler: (body: In) -> Either<Err, Res>
 ) =
     if (headers["Content-type"]?.contains("application/json") != true)
         Left(RouteException.UserRequest("Expected content type of application/json"))
@@ -93,11 +90,8 @@ inline fun <reified In : RouteInput, reified Res: RouteResponse> HTTPRequest.jso
         json.fparse(In::class.serializer(), jsonString)
             .mapLeft { RouteException.UserRequest("Cannot parse json") }
             .flatMap { handler(it) }
-    }.toJsonResponse()
-
-@OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified Res: RouteResponse> Either<RouteException, Res>.toJsonResponse() =
-    flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
+    }
+        .flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
         .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
         .json()
 
@@ -106,7 +100,7 @@ inline fun <reified Res: RouteResponse> Either<RouteException, Res>.toJsonRespon
 data class LoginPayload(val login: String, val password: String) : RouteInput()
 
 @Serializable
-data class AccessToken(val accessToken: String) : RouteResponse()
+data class AccessToken(val accessToken: String) : RouteResponse(true)
 
 // Put product route types
 @Serializable
@@ -118,7 +112,11 @@ data class PutGoodRequest(
 ) : RouteInput()
 
 @Serializable
-data class PushedGood(val product: Product) : RouteResponse()
+data class PushedGood(val product: Product) : RouteResponse(true)
+
+// Post product route types
+@Serializable
+data class UpdateGood(val product: Unit) : RouteResponse(true)
 
 // Get products route types
 @Serializable
