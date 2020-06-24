@@ -67,7 +67,7 @@ class Serve : CliktCommand(help = "Launch the server", name = "serve") {
             )
         }
         if (populate) {
-            if (model.productCount.fold({ false }, { it == 0})) {
+            if (model.getProductCount().fold({ false }, { it == 0})) {
                 val res = Either.fx<ModelException, Unit> {
                     val sweets = model.addGroup("Sweets").bind()
                     val healthcare = model.addGroup("Healthcare").bind()

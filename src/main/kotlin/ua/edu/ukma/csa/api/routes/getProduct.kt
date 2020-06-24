@@ -17,13 +17,13 @@ fun getProduct(model: ModelSource, tokenSecret: String): RouteHandler = fun(requ
     val id = try {
         request.matches["id"]!!.toInt()
     } catch (e: NumberFormatException) {
-        return HTTPResponse.notFound("Invalid product id")
+        return HTTPResponse.invalidRequest("Invalid product id")
     }
 
     return when (val product = model.getProduct(ProductID(id))) {
         is Either.Left -> {
             if (product.a is ModelException.ProductDoesNotExist) HTTPResponse.notFound(product.a.message ?: "")
-            HTTPResponse.serverError(product.a.message ?: "")
+            else HTTPResponse.serverError(product.a.message ?: "")
         }
         is Either.Right -> HTTPResponse.ok(json.stringify(Product.serializer(), product.b)).json()
     }

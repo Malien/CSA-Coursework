@@ -79,7 +79,7 @@ data class HTTPResponse(
             conflict(body.toByteArray(), headers)
 
         fun conflict(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
-            HTTPResponse(209, headers, body)
+            HTTPResponse(409, headers, body)
 
         fun noContent(body: String, headers: Headers = Headers()) =
             noContent(body.toByteArray(), headers)

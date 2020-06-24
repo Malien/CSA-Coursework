@@ -58,7 +58,8 @@ interface ModelSource {
         amount: Int? = null
     ): Either<ModelException, List<Product>>
 
-    val productCount: Either<ModelException, Int>
+    // TODO: Docs and Tests
+    fun getProductCount(): Either<ModelException, Int>
 
     /**
      * Remove product from model
@@ -111,6 +112,9 @@ interface ModelSource {
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
     fun addGroup(name: String): Either<ModelException, Group>
+
+    // TODO: Docs and tests
+    fun getGroups(): Either<ModelException, List<Group>>
 
     /**
      * Assign group by it's [id][GroupID] to the product

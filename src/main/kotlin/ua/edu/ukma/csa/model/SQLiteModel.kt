@@ -157,13 +157,12 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         }
     }
 
-    override val productCount: Either<ModelException, Int>
-        get() = withConnection { connection ->
-            connection.createStatement().use { statement ->
-                val res = statement.executeQuery("SELECT count(*) AS product_count FROM product")
-                Right(res.getInt("product_count"))
-            }
+    override fun getProductCount(): Either<ModelException, Int> = withConnection { connection ->
+        connection.createStatement().use { statement ->
+            val res = statement.executeQuery("SELECT count(*) AS product_count FROM product")
+            Right(res.getInt("product_count"))
         }
+    }
 
     /**
      * Remove product from model
@@ -259,33 +258,43 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
      * @param name name of the new group
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or newly created [Group] otherwise
      */
-    override fun addGroup(name: String): Either<ModelException, Group> =
-        withTransaction { connection ->
-            connection.prepareStatement(
-                "SELECT id FROM product_group WHERE name = ? LIMIT 1"
+    override fun addGroup(name: String): Either<ModelException, Group> = withTransaction { connection ->
+        connection.prepareStatement(
+            "SELECT id FROM product_group WHERE name = ? LIMIT 1"
+        ).use { statement ->
+            statement.setString(1, name)
+            val result = statement.executeQuery()
+            if (result.next()) {
+                val id = result.getInt("id")
+                Left(ModelException.GroupAlreadyExists(GroupID(id)))
+            } else Right(Unit)
+        }.map {
+            val id = connection.prepareStatement(
+                "INSERT INTO product_group (name) VALUES (?)",
+                Statement.RETURN_GENERATED_KEYS
             ).use { statement ->
                 statement.setString(1, name)
-                val result = statement.executeQuery()
-                if (result.next()) {
-                    val id = result.getInt("id")
-                    Left(ModelException.GroupAlreadyExists(GroupID(id)))
-                } else Right(Unit)
-            }.map {
-                val id = connection.prepareStatement(
-                    "INSERT INTO product_group (name) VALUES (?)",
-                    Statement.RETURN_GENERATED_KEYS
-                ).use { statement ->
-                    statement.setString(1, name)
-                    statement.executeUpdate()
-                    statement.generatedKeys.use { keys ->
-                        keys.next()
-                        keys.getInt(1)
-                    }
+                statement.executeUpdate()
+                statement.generatedKeys.use { keys ->
+                    keys.next()
+                    keys.getInt(1)
                 }
-
-                Group(GroupID(id), name)
             }
+
+            Group(GroupID(id), name)
         }
+    }
+
+    override fun getGroups(): Either<ModelException, List<Group>> = withConnection { connection ->
+        connection.createStatement().use { statement ->
+            Right(statement.executeQuery("SELECT id, name FROM product_group")
+                .iterator()
+                .asSequence()
+                .map { Group(GroupID(it.getInt("id")), it.getString("name")) }
+                .toList()
+            )
+        }
+    }
 
     /**
      * Assign group by it's [id][GroupID] to the product

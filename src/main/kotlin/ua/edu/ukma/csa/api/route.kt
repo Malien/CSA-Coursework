@@ -9,6 +9,7 @@ import ua.edu.ukma.csa.api.RouteException.Companion.serverError
 import ua.edu.ukma.csa.api.routes.*
 import ua.edu.ukma.csa.kotlinx.serialization.fparse
 import ua.edu.ukma.csa.kotlinx.serialization.fstringify
+import ua.edu.ukma.csa.model.Group
 import ua.edu.ukma.csa.model.GroupID
 import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.model.Product
@@ -73,12 +74,17 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
         get(getProduct(model, tokenSecret))
         delete(deleteProduct(model, tokenSecret))
     }
-    "/api/goods" {
-        get(getProducts(model, tokenSecret))
-    }
     "/api/good"{
         put(putProduct(model, tokenSecret))
         //post(postProduct(model))
+    }
+    "/api/goods" {
+        get(getProducts(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Authorization"))
+    }
+    "/api/groups" {
+        get(getGroups(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Authorization"))
     }
 }
 
@@ -136,3 +142,7 @@ data class UpdateGood(val product: Unit) : RouteResponse()
 // Get products route types
 @Serializable
 data class ProductList(val products: List<Product>) : RouteResponse()
+
+// Get groups route types
+@Serializable
+data class GroupList(val groups: List<Group>): RouteResponse()
