@@ -35,7 +35,7 @@ sealed class TokenException : RuntimeException {
     class InvalidToken(message: String) : TokenException(message)
 }
 
-fun ModelSource.authorizeHeaders(headers: Headers, tokenSecret: String): Either<RouteException, UserID> {
+fun ModelSource.authorizeHeaders(headers: Headers, tokenSecret: String): Either<RouteException.Unauthorized, UserID> {
     val authHeader =
         headers["Authorization"]?.first() ?: return Left(RouteException.Unauthorized("Token is not present"))
     val split = authHeader.split(" ")

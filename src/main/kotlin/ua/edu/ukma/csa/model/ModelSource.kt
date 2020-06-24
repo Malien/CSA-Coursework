@@ -58,6 +58,8 @@ interface ModelSource {
         amount: Int? = null
     ): Either<ModelException, List<Product>>
 
+    val productCount: Either<ModelException, Int>
+
     /**
      * Remove product from model
      * @param id [ProductID] of product specified

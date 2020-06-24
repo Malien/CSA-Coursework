@@ -157,6 +157,14 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         }
     }
 
+    override val productCount: Either<ModelException, Int>
+        get() = withConnection { connection ->
+            connection.createStatement().use { statement ->
+                val res = statement.executeQuery("SELECT count(*) AS product_count FROM product")
+                Right(res.getInt("product_count"))
+            }
+        }
+
     /**
      * Remove product from model
      * @param id [ProductID] of product specified
