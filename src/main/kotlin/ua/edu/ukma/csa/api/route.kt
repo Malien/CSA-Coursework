@@ -12,6 +12,7 @@ import ua.edu.ukma.csa.kotlinx.serialization.fstringify
 import ua.edu.ukma.csa.model.GroupID
 import ua.edu.ukma.csa.model.ModelSource
 import ua.edu.ukma.csa.model.Product
+import ua.edu.ukma.csa.model.ProductID
 import ua.edu.ukma.csa.network.http.HTTPRequest
 import ua.edu.ukma.csa.network.http.HTTPResponse
 import ua.edu.ukma.csa.network.http.Router
@@ -43,7 +44,7 @@ sealed class RouteException : RouteResponse(false) {
 
     @Serializable
     @SerialName("conflict")
-    data class Conflict(val message: String? = null): RouteException()
+    data class Conflict(val message: String? = null) : RouteException()
 
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
@@ -74,7 +75,7 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     }
     "/api/good"{
         put(putProduct(model, tokenSecret))
-        //post(postProduct(model))
+        post(postProduct(model, tokenSecret))
     }
 }
 
@@ -110,5 +111,19 @@ data class PutGoodRequest(
     val groups: Set<GroupID> = emptySet()
 ) : RouteInput()
 
+
+@Serializable
+data class UpdateGoodRequest(
+    val id: Int,
+    val name: String,
+    val price: Double,
+    val count: Int = 0,
+    val groups: Set<GroupID> = emptySet()
+) : RouteInput()
+
+
 @Serializable
 data class PushedGood(val product: Product) : RouteResponse(true)
+
+@Serializable
+data class UpdateGood(val product: Unit) : RouteResponse(true)
