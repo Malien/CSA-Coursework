@@ -9,16 +9,10 @@ import ua.edu.ukma.csa.network.http.HTTPResponse
 import ua.edu.ukma.csa.network.http.RouteHandler
 
 
-fun postProduct(model: ModelSource, tokenSecret: String): RouteHandler = fun(request): HTTPResponse {
+fun postProduct(model: ModelSource, tokenSecret: String): RouteHandler = { request ->
     val userID = model.authorizeHeaders(request.headers, tokenSecret)
 
-    val id = try {
-        request.matches["id"]!!.toInt()
-    } catch (e: NumberFormatException) {
-        return HTTPResponse.notFound("Invalid product id")
-    }
-
-    return request.jsonRoute { (id, name, price, count, groups): UpdateGoodRequest ->
+    request.jsonRoute { (id, name, price, count, groups): UpdateGoodRequest ->
         userID.flatMap { _ ->
             model.updateProduct(ProductID(id), name, price, count, groups).mapLeft {
                 when (it) {
