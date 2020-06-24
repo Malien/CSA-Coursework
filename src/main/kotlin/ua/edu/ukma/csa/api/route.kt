@@ -45,6 +45,10 @@ sealed class RouteException : RouteResponse(false) {
     @SerialName("conflict")
     data class Conflict(val message: String? = null): RouteException()
 
+    @Serializable
+    @SerialName("no content")
+    data class NoContent(val message: String? = null): RouteException()
+
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
         return when (this) {
@@ -53,6 +57,7 @@ sealed class RouteException : RouteResponse(false) {
             is ServerError -> HTTPResponse.serverError(string)
             is Unauthorized -> HTTPResponse.unauthorized(string)
             is Conflict -> HTTPResponse.conflict(string)
+            is NoContent->HTTPResponse.noContent(string)
         }
     }
 
@@ -78,7 +83,7 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     }
     "/api/good"{
         put(putProduct(model, tokenSecret))
-        //post(postProduct(model))
+        post(postProduct(model, tokenSecret))
     }
 }
 

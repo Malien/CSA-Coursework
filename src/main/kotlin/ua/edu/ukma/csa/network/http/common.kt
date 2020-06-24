@@ -75,12 +75,6 @@ data class HTTPResponse(
         fun ok(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
             HTTPResponse(200, headers, body)
 
-        fun conflict(body: String, headers: Headers = Headers()) =
-            conflict(body.toByteArray(), headers)
-
-        fun conflict(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
-            HTTPResponse(209, headers, body)
-
         fun noContent(body: String, headers: Headers = Headers()) =
             noContent(body.toByteArray(), headers)
 
@@ -107,6 +101,12 @@ data class HTTPResponse(
 
         fun serverError(body: String, headers: Headers = Headers()) =
             serverError(body.toByteArray(), headers)
+
+        fun conflict(body: String, headers: Headers = Headers()) =
+            conflict(body.toByteArray(), headers)
+
+        fun conflict(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
+            HTTPResponse(409, headers, body)
 
         fun serverError(body: ByteArray = ByteArray(0), headers: Headers = Headers()) =
             HTTPResponse(500, headers, body)
