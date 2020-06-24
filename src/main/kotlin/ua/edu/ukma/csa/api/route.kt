@@ -20,7 +20,7 @@ import ua.edu.ukma.csa.network.http.Router
 sealed class RouteInput
 
 @Serializable
-sealed class RouteResponse(val ok: Boolean)
+sealed class RouteResponse(@Required val ok: Boolean = true)
 
 @Serializable
 sealed class RouteException : RouteResponse(false) {
@@ -100,7 +100,7 @@ inline fun <reified In : RouteInput, reified Err : RouteException, reified Res :
 data class LoginPayload(val login: String, val password: String) : RouteInput()
 
 @Serializable
-data class AccessToken(val accessToken: String) : RouteResponse(true)
+data class AccessToken(val accessToken: String) : RouteResponse()
 
 // Put product route types
 @Serializable
@@ -112,11 +112,20 @@ data class PutGoodRequest(
 ) : RouteInput()
 
 @Serializable
-data class PushedGood(val product: Product) : RouteResponse(true)
+data class PushedGood(val product: Product) : RouteResponse()
 
 // Post product route types
 @Serializable
-data class UpdateGood(val product: Unit) : RouteResponse(true)
+data class UpdateGoodRequest(
+    val id: Int,
+    val name: String,
+    val price: Double,
+    val count: Int = 0,
+    val groups: Set<GroupID> = emptySet()
+) : RouteInput()
+
+@Serializable
+data class UpdateGood(val product: Unit) : RouteResponse()
 
 // Get products route types
 @Serializable
