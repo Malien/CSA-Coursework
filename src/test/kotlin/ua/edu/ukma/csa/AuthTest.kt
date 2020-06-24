@@ -40,7 +40,7 @@ class AuthTest {
     private lateinit var user: User
 
     companion object {
-        private const val PORT = 4499
+        private const val PORT = 3330
         private const val HOSTNAME = "localhost"
         private const val API_URL = "http://$HOSTNAME:$PORT"
         private const val SECRET = "secret"

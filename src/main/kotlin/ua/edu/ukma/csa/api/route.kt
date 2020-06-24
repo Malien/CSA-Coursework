@@ -44,11 +44,15 @@ sealed class RouteException : RouteResponse(false) {
 
     @Serializable
     @SerialName("conflict")
-    data class Conflict(val message: String? = null): RouteException()
+    data class Conflict(val message: String? = null) : RouteException()
 
     @Serializable
     @SerialName("no content")
-    data class NoContent(val message: String? = null): RouteException()
+    data class NoContent(val message: String? = null) : RouteException()
+
+    @Serializable
+    @SerialName("not found")
+    data class NotFound(val message: String? = null) : RouteException()
 
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
@@ -58,7 +62,8 @@ sealed class RouteException : RouteResponse(false) {
             is ServerError -> HTTPResponse.serverError(string)
             is Unauthorized -> HTTPResponse.unauthorized(string)
             is Conflict -> HTTPResponse.conflict(string)
-            is NoContent->HTTPResponse.noContent(string)
+            is NoContent -> HTTPResponse.noContent(string)
+            is NotFound -> HTTPResponse.notFound()
         }
     }
 
@@ -94,7 +99,7 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
 }
 
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified In : RouteInput, reified Res: RouteResponse> HTTPRequest.jsonRoute(
+inline fun <reified In : RouteInput, reified Res : RouteResponse> HTTPRequest.jsonRoute(
     crossinline handler: (body: In) -> Either<RouteException, Res>
 ) =
     if (headers["Content-type"]?.contains("application/json") != true)
@@ -107,7 +112,7 @@ inline fun <reified In : RouteInput, reified Res: RouteResponse> HTTPRequest.jso
     }.toJsonResponse()
 
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified Res: RouteResponse> Either<RouteException, Res>.toJsonResponse() =
+inline fun <reified Res : RouteResponse> Either<RouteException, Res>.toJsonResponse() =
     flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
         .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
         .json()
@@ -141,6 +146,10 @@ data class UpdateGoodRequest(
     val groups: Set<GroupID> = emptySet()
 ) : RouteInput()
 
+//delete product route types
+@Serializable
+data class DeleteProductRequest(val id: Int) : RouteInput()
+
 @Serializable
 data class UpdateGood(val product: Unit) : RouteResponse()
 
@@ -150,4 +159,4 @@ data class ProductList(val products: List<Product>) : RouteResponse()
 
 // Get groups route types
 @Serializable
-data class GroupList(val groups: List<Group>): RouteResponse()
+data class GroupList(val groups: List<Group>) : RouteResponse()
