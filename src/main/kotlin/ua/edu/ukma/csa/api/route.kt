@@ -65,6 +65,7 @@ sealed class RouteException : RouteResponse(false) {
 fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     "/login" {
         post(login(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Content-Type"))
     }
     "/" {
         get(root)
