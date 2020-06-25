@@ -85,12 +85,14 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
         get(root)
     }
     "/api/good/:id"{
-        get(getProduct(model, tokenSecret))//done
-        delete(deleteProduct(model, tokenSecret))//done
+        get(getProduct(model, tokenSecret)) // done
+        delete(deleteProduct(model, tokenSecret)) // done
+        post(postProduct(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
     }
     "/api/good"{
-        put(putProduct(model, tokenSecret))//done
-        post(postProduct(model, tokenSecret))//done
+        put(putProduct(model, tokenSecret)) // done
+        preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
     }
     "/api/goods" {
         get(getProducts(model, tokenSecret))
@@ -101,11 +103,11 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
         preflightOptions(allowedHeaders = listOf("Authorization"))
     }
     "/api/group" {
-        put(putGroup(model, tokenSecret))//done
+        put(putGroup(model, tokenSecret)) // done
         preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
     }
     "/api/group/:id" {
-        delete(deleteGroup(model, tokenSecret))//done
+        delete(deleteGroup(model, tokenSecret)) // done
         preflightOptions(allowedHeaders = listOf("Authorization"))
     }
 }
@@ -151,20 +153,11 @@ data class PushedGood(val product: Product) : RouteResponse()
 // Post product route types
 @Serializable
 data class UpdateGoodRequest(
-    val id: Int,
-    val name: String,
-    val price: Double,
-    val count: Int = 0,
-    val groups: Set<GroupID> = emptySet()
+    val name: String? = null,
+    val price: Double? = null,
+    val count: Int? = null,
+    val groups: Set<GroupID>? = null
 ) : RouteInput()
-
-//delete product route types
-@Serializable
-data class DeleteProductRequest(val id: Int) : RouteInput()
-
-//delete group route types
-@Serializable
-data class DeleteGroupRequest(val id: Int) : RouteInput()
 
 @Serializable
 data class UpdateGood(val product: Unit) : RouteResponse()
