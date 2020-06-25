@@ -116,6 +116,9 @@ interface ModelSource {
      */
     fun addGroup(name: String): Either<ModelException, Group>
 
+    // TODO: Docs and tests
+    fun removeGroup(id: GroupID): Either<ModelException, Unit>
+
     /**
      * Retrieve [group][Group] from model
      * @return [Either] a [ModelException]in case operation cannot be fulfilled or a list of [Group]s otherwise
