@@ -116,7 +116,12 @@ interface ModelSource {
      */
     fun addGroup(name: String): Either<ModelException, Group>
 
-    // TODO: Docs and tests
+    /**
+     * Remove group from model
+     * @param id [GroupID] of group specified
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
+     */
     fun removeGroup(id: GroupID): Either<ModelException, Unit>
 
     /**

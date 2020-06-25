@@ -18,12 +18,14 @@ class SQLiteModelTest {
     private lateinit var biscuit: Product
     private lateinit var conditioner: Product
     private lateinit var iceCream: Product
+    private lateinit var avocado: Product
 
     private val model = SQLiteModel("test.db")
 
     private lateinit var sweets: Group
     private lateinit var cosmetics: Group
     private lateinit var diary: Group
+    private lateinit var fruits: Group
 
     @BeforeEach
     fun populate() {
@@ -32,10 +34,12 @@ class SQLiteModelTest {
         biscuit = model.addProduct(name = "Biscuit", count = 100, price = 20.5).handleWithThrow()
         conditioner = model.addProduct(name = "Hair conditioner", count = 20, price = 13.75).handleWithThrow()
         iceCream = model.addProduct(name = "Vanilla Ice Cream", count = 50, price = 7.59).handleWithThrow()
+        avocado = model.addProduct(name = "Avocado Xaoss", count = 123, price = 38.59).handleWithThrow()
 
         sweets = model.addGroup("Sweets").handleWithThrow()
         cosmetics = model.addGroup("Cosmetics").handleWithThrow()
         diary = model.addGroup("Diary").handleWithThrow()
+        fruits = model.addGroup("Fruits").handleWithThrow()
     }
 
     @AfterAll
@@ -69,6 +73,19 @@ class SQLiteModelTest {
     }
 
     @Test
+    fun removeGroup() {
+        val deleteGroup = model.removeGroup(fruits.id)
+        assertRight(Unit, deleteGroup)
+    }
+
+    @Test
+    fun removeGroupInvalidate() {
+        val robot = Group(GroupID.UNSET, "Robot")
+        val deletedProduct = model.removeGroup(robot.id)
+        assertLeftType<ModelException.GroupDoesNotExist>(deletedProduct)
+    }
+
+    @Test
     fun addGroup() {
         val newGroup = model.addGroup("Sweets")
         assertLeftType<ModelException.GroupAlreadyExists>(newGroup)
@@ -76,7 +93,7 @@ class SQLiteModelTest {
 
     @Test
     fun getGroupCheck() {
-        val groupsMap = mapOf(sweets.id to  sweets.name, cosmetics.id to cosmetics.name, diary.id to diary.name)
+        val groupsMap = mapOf(sweets.id to sweets.name, cosmetics.id to cosmetics.name, diary.id to diary.name)
         val getGroupCount = model.getGroups()
         assertRight(groupsMap, getGroupCount)
     }
@@ -144,7 +161,7 @@ class SQLiteModelTest {
     }
 
     @Test
-    fun getProductCountCheck(){
+    fun getProductCountCheck() {
         val productsSet = setOf(iceCream.id, conditioner.id, biscuit.id)
         val getProductCount = model.getProductCount()
         assertRight(productsSet.size, getProductCount)

@@ -257,6 +257,12 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
             Right(Unit)
         }
 
+    /**
+     * Remove group from model
+     * @param id [GroupID] of group specified
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
+     */
     override fun removeGroup(id: GroupID): Either<ModelException, Unit> = withConnection { connection ->
         connection.prepareStatement("DELETE FROM product_group WHERE id = ?").use { statement ->
             statement.setInt(1, id.id)
