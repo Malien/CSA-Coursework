@@ -3,8 +3,8 @@ package ua.edu.ukma.csa.network
 import kotlinx.serialization.ImplicitReflectionSerializer
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.serializer
+import ua.edu.ukma.csa.Configuration.protobuf
 import ua.edu.ukma.csa.kotlinx.serialization.fdump
 import ua.edu.ukma.csa.model.ProductID
 import ua.edu.ukma.csa.model.UserID
@@ -48,8 +48,8 @@ fun <T : Response> T.toMessage(userID: UserID = UserID.UNSET, serializer: KSeria
 
 @OptIn(ImplicitReflectionSerializer::class)
 inline fun <reified T : Response> T.serialize() =
-    ProtoBuf.fdump(T::class.serializer(), this)
+    protobuf.fdump(T::class.serializer(), this)
 
 fun <T : Response> T.serialize(serializer: KSerializer<T>) =
-    ProtoBuf.fdump(serializer, this)
+    protobuf.fdump(serializer, this)
 

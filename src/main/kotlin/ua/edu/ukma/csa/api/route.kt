@@ -6,21 +6,26 @@ import arrow.core.flatMap
 import kotlinx.serialization.*
 import ua.edu.ukma.csa.Configuration.json
 import ua.edu.ukma.csa.api.RouteException.Companion.serverError
-import ua.edu.ukma.csa.api.routes.login
-import ua.edu.ukma.csa.api.routes.root
+import ua.edu.ukma.csa.api.routes.*
 import ua.edu.ukma.csa.kotlinx.serialization.fparse
 import ua.edu.ukma.csa.kotlinx.serialization.fstringify
+import ua.edu.ukma.csa.model.Group
+import ua.edu.ukma.csa.model.GroupID
 import ua.edu.ukma.csa.model.ModelSource
+import ua.edu.ukma.csa.model.Product
 import ua.edu.ukma.csa.network.http.HTTPRequest
 import ua.edu.ukma.csa.network.http.HTTPResponse
-import ua.edu.ukma.csa.network.http.RouteHandler
 import ua.edu.ukma.csa.network.http.Router
 
 @Serializable
 sealed class RouteInput
 
 @Serializable
-sealed class RouteResponse(val ok: Boolean)
+sealed class RouteResponse(@Required val ok: Boolean = true) {
+
+    @Serializable
+    class Ok : RouteResponse(true)
+}
 
 @Serializable
 sealed class RouteException : RouteResponse(false) {
@@ -37,12 +42,32 @@ sealed class RouteException : RouteResponse(false) {
     @SerialName("server")
     data class ServerError(val message: String? = null) : RouteException()
 
+    @Serializable
+    @SerialName("notFound")
+    data class NotFound(val message: String? = null) : RouteException()
+
+    @Serializable
+    @SerialName("unauthorized")
+    data class Unauthorized(val message: String? = null) : RouteException()
+
+    @Serializable
+    @SerialName("conflict")
+    data class Conflict(val message: String? = null) : RouteException()
+
+    @Serializable
+    @SerialName("noContent")
+    data class NoContent(val message: String? = null) : RouteException()
+
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
         return when (this) {
             is UserRequest -> HTTPResponse.invalidRequest(string)
             is CredentialMismatch -> HTTPResponse.unauthorized(string)
             is ServerError -> HTTPResponse.serverError(string)
+            is Unauthorized -> HTTPResponse.unauthorized(string)
+            is Conflict -> HTTPResponse.conflict(string)
+            is NoContent -> HTTPResponse.noContent(string)
+            is NotFound -> HTTPResponse.notFound(string)
         }
     }
 
@@ -51,37 +76,103 @@ sealed class RouteException : RouteResponse(false) {
     }
 }
 
+fun routerOf(model: ModelSource, tokenSecret: String) = Router {
+    "/login" {
+        post(login(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Content-Type"))
+    }
+    "/" {
+        get(root)
+    }
+    "/api/good/:id"{
+        get(getProduct(model, tokenSecret)) // done
+        delete(deleteProduct(model, tokenSecret)) // done
+        post(postProduct(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
+    }
+    "/api/good"{
+        put(putProduct(model, tokenSecret)) // done
+        preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
+    }
+    "/api/goods" {
+        get(getProducts(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Authorization"))
+    }
+    "/api/groups" {
+        get(getGroups(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Authorization"))
+    }
+    "/api/group" {
+        put(putGroup(model, tokenSecret)) // done
+        preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
+    }
+    "/api/group/:id" {
+        delete(deleteGroup(model, tokenSecret)) // done
+        preflightOptions(allowedHeaders = listOf("Authorization"))
+    }
+}
+
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified In: RouteInput, reified Err : RouteException, reified Res: RouteResponse> jsonRoute(
-    crossinline handler: (request: HTTPRequest, body: In) -> Either<Err, Res>
-): RouteHandler = { request ->
-    if (request.headers["Content-type"]?.contains("application/json") != true)
+inline fun <reified In : RouteInput, reified Res : RouteResponse> HTTPRequest.jsonRoute(
+    crossinline handler: (body: In) -> Either<RouteException, Res>
+) =
+    if (headers["Content-type"]?.contains("application/json") != true)
         Left(RouteException.UserRequest("Expected content type of application/json"))
     else {
-        val jsonString = String(request.body.readBytes())
+        val jsonString = String(body.readBytes())
         json.fparse(In::class.serializer(), jsonString)
             .mapLeft { RouteException.UserRequest("Cannot parse json") }
-            .flatMap { handler(request, it) }
-    }
-        .flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
+            .flatMap { handler(it) }
+    }.toJsonResponse()
+
+@OptIn(ImplicitReflectionSerializer::class)
+inline fun <reified Res : RouteResponse> Either<RouteException, Res>.toJsonResponse() =
+    flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
         .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
         .json()
-        .close()
-}
 
 // Login route types
 @Serializable
 data class LoginPayload(val login: String, val password: String) : RouteInput()
 
 @Serializable
-data class AccessToken(val accessToken: String) : RouteResponse(true)
+data class AccessToken(val accessToken: String) : RouteResponse()
 
-fun routerOf(model: ModelSource, tokenSecret: String) = Router {
-    "/login" {
-        post(login(model, tokenSecret))
-    }
-    "/" {
-        get(root)
-    }
-}
+// Put product route types
+@Serializable
+data class PutGoodRequest(
+    val name: String,
+    val price: Double,
+    val count: Int = 0,
+    val groups: Set<GroupID> = emptySet()
+) : RouteInput()
 
+@Serializable
+data class PushedGood(val product: Product) : RouteResponse()
+
+// Post product route types
+@Serializable
+data class UpdateGoodRequest(
+    val name: String? = null,
+    val price: Double? = null,
+    val count: Int? = null,
+    val groups: Set<GroupID>? = null
+) : RouteInput()
+
+@Serializable
+data class UpdateGood(val product: Unit) : RouteResponse()
+
+// Get products route types
+@Serializable
+data class ProductList(val products: List<Product>) : RouteResponse()
+
+// Get groups route types
+@Serializable
+data class GroupList(val groups: List<Group>) : RouteResponse()
+
+// Put group route types
+@Serializable
+data class PutGroupRequest(val name: String) : RouteInput()
+
+@Serializable
+data class PushedGroup(val group: Group) : RouteResponse()

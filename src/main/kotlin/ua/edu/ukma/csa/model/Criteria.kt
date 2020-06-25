@@ -9,7 +9,7 @@ data class Criteria(
     val name: String? = null,
     val fromPrice: Double? = null,
     val toPrice: Double? = null,
-    val inGroups: Set<GroupID> = emptySet()
+    val inGroups: Set<GroupID>? = null
 ) {
     fun preparedNameSQL(columnName: String) = name.transformNotNull { "$columnName LIKE ?" }
 
@@ -22,7 +22,7 @@ data class Criteria(
         }
 
     fun preparedGroupSQL(columnName: String) =
-        if (inGroups.isEmpty()) null else "$columnName IN (${inGroups.joinToString { "?" }})"
+        inGroups.transformNotNull { "$columnName IN (${it.joinToString { "?" }})" }
 
     fun insertNamePlaceholders(statement: PreparedStatement, idx: Int) =
         idx + if (name != null) {
@@ -48,9 +48,9 @@ data class Criteria(
         }
 
     fun insertGroupsPlaceholders(statement: PreparedStatement, idx: Int) =
-        inGroups.fold(idx) { accumulator, (id) ->
+        inGroups?.fold(idx) { accumulator, (id) ->
             statement.setInt(accumulator, id)
             accumulator + 1
-        }
+        } ?: idx
 }
 

@@ -1,14 +1,12 @@
 package ua.edu.ukma.csa
 
 import arrow.core.Either
+import arrow.core.extensions.fx
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.findObject
 import com.github.ajalt.clikt.core.requireObject
 import com.github.ajalt.clikt.core.subcommands
-import com.github.ajalt.clikt.parameters.options.default
-import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.options.required
-import com.github.ajalt.clikt.parameters.options.validate
+import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.int
 import com.sun.net.httpserver.HttpServer
 import ua.edu.ukma.csa.api.routerOf
@@ -42,6 +40,11 @@ class Serve : CliktCommand(help = "Launch the server", name = "serve") {
         envvar = "ADMIN_PASSWORD"
     ).validate { adminLogin != null }
 
+    private val populate by option(
+        "--populate",
+        help = "Whether or not include sample data on startup"
+    ).flag()
+
     val model by findObject<ModelSource> { SQLiteModel(dbname) }
 
     init {
@@ -62,6 +65,22 @@ class Serve : CliktCommand(help = "Launch the server", name = "serve") {
                     else -> "Couldn't create an admin account"
                 }
             )
+        }
+        if (populate) {
+            if (model.getProductCount().fold({ false }, { it == 0})) {
+                val res = Either.fx<ModelException, Unit> {
+                    val sweets = model.addGroup("Sweets").bind()
+                    val healthcare = model.addGroup("Healthcare").bind()
+                    val dairy = model.addGroup("Dairy").bind()
+                    model.addProduct("Biscuit", 10, 12.49, setOf(sweets.id)).bind()
+                    model.addProduct("Conditioner", 20, 23.69, setOf(healthcare.id)).bind()
+                    model.addProduct("Ice Cream", 5, 15.99, setOf(sweets.id, dairy.id)).bind()
+                }
+                if (res is Either.Left) {
+                    System.err.println("Error occurred while populating model")
+                    res.a.printStackTrace()
+                } else println("Populated model with products")
+            }
         }
     }
 

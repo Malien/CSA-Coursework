@@ -1,5 +1,6 @@
 package ua.edu.ukma.csa.network.http
 
+import com.sun.net.httpserver.Headers
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import java.util.*
@@ -25,6 +26,24 @@ class HTTPMethodDefinition(
     fun head(handler: RouteHandler) = custom(HTTPMethod.HEAD, handler)
     /** Register OPTIONS handler */
     fun options(handler: RouteHandler) = custom(HTTPMethod.OPTIONS, handler)
+
+    fun preflightOptions(allowedHeaders: List<String>? = null) {
+        options { request ->
+            val headers = Headers()
+            val origin = request.headers["Origin"]
+            if (origin != null) {
+                headers["Access-Control-Allow-Origin"] = origin
+                headers.add("Vary", "Origin")
+            }
+            if (defaultHandler == null) {
+                headers["Access-Control-Allow-Methods"] = handlers.keys.map { it.name } + "OPTIONS"
+            }
+            if (allowedHeaders != null) {
+                headers["Access-Control-Allow-Headers"] = allowedHeaders
+            }
+            HTTPResponse.noContent(headers = headers)
+        }
+    }
 
     /**
      * Register default handler.
@@ -181,14 +200,25 @@ class Router(
             try {
                 handler.handler(matched)
             } catch (e: Exception) {
+                e.printStackTrace()
                 HTTPResponse(statusCode = 500)
             }
         }
 
+        val origin = request.headers["Origin"]
+        if (origin != null) {
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers.add("Vary", "Origin")
+        }
+
         request.body.close()
 
+//        if (response.headers["Connection"] == null) {
+//            response.headers["Connection"] = request.headers["Connection"]
+//        }
+
         if (response.headers["Connection"] == null) {
-            response.headers["Connection"] = request.headers["Connection"]
+            response.headers["Connection"] = "close"
         }
 
         exchange.responseHeaders.putAll(response.headers)

@@ -5,11 +5,11 @@ import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.SQLException
 
-inline fun <T> Connection.transaction(transactionHandler: Connection.() -> T): T {
+inline fun <T> Connection.transaction(transactionHandler: (connection: Connection) -> T): T {
     val prevCommitState = autoCommit
     autoCommit = false
     return try {
-        val res = transactionHandler()
+        val res = transactionHandler(this)
         commit()
         autoCommit = prevCommitState
         res

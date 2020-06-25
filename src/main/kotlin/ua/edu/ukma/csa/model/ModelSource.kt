@@ -59,6 +59,12 @@ interface ModelSource {
     ): Either<ModelException, List<Product>>
 
     /**
+     * Retrieve a count of the products
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Int] otherwise
+     */
+    fun getProductCount(): Either<ModelException, Int>
+
+    /**
      * Remove product from model
      * @param id [ProductID] of product specified
      * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
@@ -111,6 +117,20 @@ interface ModelSource {
     fun addGroup(name: String): Either<ModelException, Group>
 
     /**
+     * Remove group from model
+     * @param id [GroupID] of group specified
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     * if group does not exist, [Left] of [ModelException.GroupDoesNotExist] will be returned
+     */
+    fun removeGroup(id: GroupID): Either<ModelException, Unit>
+
+    /**
+     * Retrieve [group][Group] from model
+     * @return [Either] a [ModelException]in case operation cannot be fulfilled or a list of [Group]s otherwise
+     */
+    fun getGroups(): Either<ModelException, List<Group>>
+
+    /**
      * Assign group by it's [id][GroupID] to the product
      * @param productID [ProductID] of a product to assign group to
      * @param groupID [GroupID] of a group that is assigned to the product
@@ -129,6 +149,23 @@ interface ModelSource {
      * if product's price is invalid, [Left] of [ModelException.ProductCanNotHaveThisPrice] will be returned
      */
     fun setPrice(id: ProductID, price: Double): Either<ModelException, Unit>
+
+    /**
+     * Update whole product
+     * @param id [ProductID] of a product which should be updated
+     * @param name new name of the product. If not set, name will not be changed. _Defaults to `null`_
+     * @param price new price of the product. If not set, price will not be changed. _Defaults to `null`_
+     * @param count new product count. If not set, count will not be changed. _Defaults to `null`_
+     * @param groups new set of groups, product is assigned to. _Defaults to `null`_
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Unit] otherwise
+     */
+    fun updateProduct(
+        id: ProductID,
+        name: String? = null,
+        price: Double? = null,
+        count: Int? = null,
+        groups: Set<GroupID>? = null
+    ): Either<ModelException, Unit>
 
     /**
      * Register user in the model

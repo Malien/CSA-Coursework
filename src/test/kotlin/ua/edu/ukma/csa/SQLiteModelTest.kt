@@ -10,6 +10,7 @@ import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
+import kotlin.math.cos
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SQLiteModelTest {
@@ -17,12 +18,14 @@ class SQLiteModelTest {
     private lateinit var biscuit: Product
     private lateinit var conditioner: Product
     private lateinit var iceCream: Product
+    private lateinit var avocado: Product
 
-    private val model = SQLiteModel(":memory:")
+    private val model = SQLiteModel("test.db")
 
     private lateinit var sweets: Group
     private lateinit var cosmetics: Group
     private lateinit var diary: Group
+    private lateinit var fruits: Group
 
     @BeforeEach
     fun populate() {
@@ -31,10 +34,12 @@ class SQLiteModelTest {
         biscuit = model.addProduct(name = "Biscuit", count = 100, price = 20.5).handleWithThrow()
         conditioner = model.addProduct(name = "Hair conditioner", count = 20, price = 13.75).handleWithThrow()
         iceCream = model.addProduct(name = "Vanilla Ice Cream", count = 50, price = 7.59).handleWithThrow()
+        avocado = model.addProduct(name = "Avocado Xaoss", count = 123, price = 38.59).handleWithThrow()
 
         sweets = model.addGroup("Sweets").handleWithThrow()
         cosmetics = model.addGroup("Cosmetics").handleWithThrow()
         diary = model.addGroup("Diary").handleWithThrow()
+        fruits = model.addGroup("Fruits").handleWithThrow()
     }
 
     @AfterAll
@@ -68,9 +73,29 @@ class SQLiteModelTest {
     }
 
     @Test
+    fun removeGroup() {
+        val deleteGroup = model.removeGroup(fruits.id)
+        assertRight(Unit, deleteGroup)
+    }
+
+    @Test
+    fun removeGroupInvalidate() {
+        val robot = Group(GroupID.UNSET, "Robot")
+        val deletedProduct = model.removeGroup(robot.id)
+        assertLeftType<ModelException.GroupDoesNotExist>(deletedProduct)
+    }
+
+    @Test
     fun addGroup() {
         val newGroup = model.addGroup("Sweets")
         assertLeftType<ModelException.GroupAlreadyExists>(newGroup)
+    }
+
+    @Test
+    fun getGroupCheck() {
+        val groupsMap = mapOf(sweets.id to sweets.name, cosmetics.id to cosmetics.name, diary.id to diary.name)
+        val getGroupCount = model.getGroups()
+        assertRight(groupsMap, getGroupCount)
     }
 
     @Test
@@ -136,6 +161,13 @@ class SQLiteModelTest {
     }
 
     @Test
+    fun getProductCountCheck() {
+        val productsSet = setOf(iceCream.id, conditioner.id, biscuit.id)
+        val getProductCount = model.getProductCount()
+        assertRight(productsSet.size, getProductCount)
+    }
+
+    @Test
     fun setPriceValidate() {
         val newPrice = model.setPrice(biscuit.id, 15.6)
         assertRight(Unit, newPrice)
@@ -174,6 +206,32 @@ class SQLiteModelTest {
     @Test
     fun addQuantityOfProductInvalidate() {
         assertLeftType<ModelException.ProductCanNotHaveThisCount>(model.addQuantityOfProduct(biscuit.id, -50))
+    }
+
+    @Test
+    fun updateProduct() {
+        model.updateProduct(biscuit.id, name = "Not biscuit", price = 1.2, count = 5).handleWithThrow()
+        val updatedProduct = model.getProduct(biscuit.id)
+
+        assertRight("Not biscuit", updatedProduct.map { it.name })
+        assertRight(1.2, updatedProduct.map { it.price })
+        assertRight(5, updatedProduct.map { it.count })
+
+        val groupSet = setOf(sweets.id, diary.id)
+        model.updateProduct(biscuit.id, name = "Biscuit again", groups = groupSet).handleWithThrow()
+        val withGroups = model.getProduct(biscuit.id)
+
+        assertRight(groupSet, withGroups.map { it.groups })
+        assertRight("Biscuit again", withGroups.map { it.name })
+
+        val emptyGroup = emptySet<GroupID>()
+        model.updateProduct(biscuit.id, groups = emptyGroup).handleWithThrow()
+        val reset = model.getProduct(biscuit.id)
+
+        assertRight(emptyGroup, reset.map { it.groups })
+        assertRight("Biscuit again", reset.map { it.name })
+        assertRight(1.2, reset.map { it.price })
+        assertRight(5, reset.map { it.count })
     }
 
 }

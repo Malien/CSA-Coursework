@@ -20,7 +20,7 @@ data class UserID(val id: Int) {
         /** Temporary solution for assigning IDs. This should be handled by the database */
         fun assign() = UserID(assignedIDs.incrementAndGet())
 
-        override val descriptor = PrimitiveDescriptor("UserID", PrimitiveKind.STRING)
+        override val descriptor = PrimitiveDescriptor("UserID", PrimitiveKind.INT)
         override fun deserialize(decoder: Decoder) = UserID(decoder.decodeInt())
         override fun serialize(encoder: Encoder, value: UserID) {
             encoder.encodeInt(value.id)
@@ -47,5 +47,5 @@ val loginRegex = Regex("""[\w_-]+""")
 
 fun checkLogin(login: String): Either<ModelException.IllegalLoginCharacters, String> {
     if (!loginRegex.matches(login)) return Left(ModelException.IllegalLoginCharacters())
-    return Right(login)
+    return Right(login.toLowerCase())
 }

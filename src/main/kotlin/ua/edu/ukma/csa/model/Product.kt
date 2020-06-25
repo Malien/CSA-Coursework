@@ -11,7 +11,7 @@ data class ProductID(val id: Int) {
     companion object : KSerializer<ProductID> {
         val UNSET = ProductID(0)
 
-        override val descriptor = PrimitiveDescriptor("ProductID", PrimitiveKind.STRING)
+        override val descriptor = PrimitiveDescriptor("ProductID", PrimitiveKind.INT)
         override fun deserialize(decoder: Decoder) = ProductID(decoder.decodeInt())
         override fun serialize(encoder: Encoder, value: ProductID) { encoder.encodeInt(value.id) }
     }
@@ -19,10 +19,13 @@ data class ProductID(val id: Int) {
 
 @Serializable
 data class Product(
+    @Required
     val id: ProductID = ProductID.UNSET,
     val name: String,
+    @Required
     val count: Int = 0,
     val price: Double,
+    @Required
     val groups: Set<GroupID> = emptySet()
 ) {
     override fun equals(other: Any?): Boolean {
