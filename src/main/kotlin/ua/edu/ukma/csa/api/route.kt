@@ -85,12 +85,12 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
         get(root)
     }
     "/api/good/:id"{
-        get(getProduct(model, tokenSecret))
-        delete(deleteProduct(model, tokenSecret))
+        get(getProduct(model, tokenSecret))//done
+        delete(deleteProduct(model, tokenSecret))//done
     }
     "/api/good"{
-        put(putProduct(model, tokenSecret))
-        post(postProduct(model, tokenSecret))
+        put(putProduct(model, tokenSecret))//done
+        post(postProduct(model, tokenSecret))//done
     }
     "/api/goods" {
         get(getProducts(model, tokenSecret))
@@ -101,7 +101,7 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
         preflightOptions(allowedHeaders = listOf("Authorization"))
     }
     "/api/group" {
-        put(putGroup(model, tokenSecret))
+        put(putGroup(model, tokenSecret))//done
         preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
     }
     "/api/group/:id" {

@@ -251,5 +251,44 @@ class APITest {
         assertTrue(noContent.receive<RouteException>() is RouteException.NoContent)
     }
 
+    @Test
+    fun `PUT group`() = runBlocking {
+        val (group) = client.put<PushedGroup>("$API_URL/api/group") {
+            header("Authorization", "Bearer $token")
+            header("Content-Type", ContentType.Application.Json)
+            body = PutGroupRequest(name = "new group")
+        }
+        assertEquals(group.name, "new group")
+
+
+        val gotGroup: Product = client.put("$API_URL/api/group/${group.id.id}") {
+            header("Authorization", "Bearer $token")
+        }
+        assertEquals(group, gotGroup)
+
+        val invalidRequest: HttpResponse = client.put("$API_URL/api/group") {
+            header("Authorization", "Bearer $token")
+            header("Content-Type", ContentType.Application.Json)
+            body = "Invalid request"
+        }
+        assertEquals(400, invalidRequest.status.value)
+        assertTrue(invalidRequest.receive<RouteException>() is RouteException.UserRequest)
+
+        val unauthorized: HttpResponse = client.put("$API_URL/api/group/invalid_id") {
+            header("Content-Type", ContentType.Application.Json)
+            body = PutGroupRequest(name = "new group")
+        }
+        assertEquals(401, unauthorized.status.value)
+        assertTrue(unauthorized.receive<RouteException>() is RouteException.Unauthorized)
+
+        val existsWithName: HttpResponse = client.put("$API_URL/api/group/name_already_exists") {
+            header("Content-Type", ContentType.Application.Json)
+            body = PutGroupRequest(name = biscuit.name)
+        }
+        assertEquals(group.name, biscuit.name)
+        assertEquals(409, existsWithName.status.value)
+        assertTrue(existsWithName.receive<RouteException>() is RouteException.Unauthorized)
+    }
+
 
 }
