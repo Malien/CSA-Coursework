@@ -157,6 +157,10 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         }
     }
 
+    /**
+     * Retrieve a count of the products
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Int] otherwise
+     */
     override fun getProductCount(): Either<ModelException, Int> = withConnection { connection ->
         connection.createStatement().use { statement ->
             val res = statement.executeQuery("SELECT count(*) AS product_count FROM product")

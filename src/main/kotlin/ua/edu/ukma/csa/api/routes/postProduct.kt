@@ -22,6 +22,6 @@ fun postProduct(model: ModelSource, tokenSecret: String): RouteHandler = { reque
                     else -> RouteException.serverError(it)
                 }
             }
-        }.map { UpdateGood(it) }
+        }.map { RouteException.NoContent("No Content")}
     }
 }

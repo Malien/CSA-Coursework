@@ -52,7 +52,7 @@ sealed class RouteException : RouteResponse(false) {
 
     @Serializable
     @SerialName("conflict")
-    data class Conflict(val message: String? = null): RouteException()
+    data class Conflict(val message: String? = null) : RouteException()
 
     @Serializable
     @SerialName("noContent")
@@ -111,7 +111,7 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
 }
 
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified In : RouteInput, reified Res: RouteResponse> HTTPRequest.jsonRoute(
+inline fun <reified In : RouteInput, reified Res : RouteResponse> HTTPRequest.jsonRoute(
     crossinline handler: (body: In) -> Either<RouteException, Res>
 ) =
     if (headers["Content-type"]?.contains("application/json") != true)
@@ -124,7 +124,7 @@ inline fun <reified In : RouteInput, reified Res: RouteResponse> HTTPRequest.jso
     }.toJsonResponse()
 
 @OptIn(ImplicitReflectionSerializer::class)
-inline fun <reified Res: RouteResponse> Either<RouteException, Res>.toJsonResponse() =
+inline fun <reified Res : RouteResponse> Either<RouteException, Res>.toJsonResponse() =
     flatMap { json.fstringify(Res::class.serializer(), it).mapLeft(::serverError) }
         .fold(RouteException::toHTTPResponse) { HTTPResponse.ok(it) }
         .json()
@@ -157,6 +157,10 @@ data class UpdateGoodRequest(
     val count: Int = 0,
     val groups: Set<GroupID> = emptySet()
 ) : RouteInput()
+
+//delete product route types
+@Serializable
+data class DeleteProductRequest(val id: Int) : RouteInput()
 
 @Serializable
 data class UpdateGood(val product: Unit) : RouteResponse()

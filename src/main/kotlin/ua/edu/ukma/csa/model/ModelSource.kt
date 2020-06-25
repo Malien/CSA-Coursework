@@ -58,7 +58,10 @@ interface ModelSource {
         amount: Int? = null
     ): Either<ModelException, List<Product>>
 
-    // TODO: Docs and Tests
+    /**
+     * Retrieve a count of the products
+     * @return [Either] a [ModelException], in case operation cannot be fulfilled or [Int] otherwise
+     */
     fun getProductCount(): Either<ModelException, Int>
 
     /**

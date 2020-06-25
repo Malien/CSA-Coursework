@@ -136,6 +136,13 @@ class SQLiteModelTest {
     }
 
     @Test
+    fun getProductCountCheck(){
+        val productsSet = setOf(iceCream.id, conditioner.id, biscuit.id)
+        val getProductCount = model.getProductCount()
+        assertRight(productsSet.size, getProductCount)
+    }
+
+    @Test
     fun setPriceValidate() {
         val newPrice = model.setPrice(biscuit.id, 15.6)
         assertRight(Unit, newPrice)
