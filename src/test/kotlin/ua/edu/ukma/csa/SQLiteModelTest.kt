@@ -10,6 +10,7 @@ import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertLeftType
 import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.*
+import kotlin.math.cos
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SQLiteModelTest {
@@ -71,6 +72,13 @@ class SQLiteModelTest {
     fun addGroup() {
         val newGroup = model.addGroup("Sweets")
         assertLeftType<ModelException.GroupAlreadyExists>(newGroup)
+    }
+
+    @Test
+    fun getGroupCheck() {
+        val groupsMap = mapOf(sweets.id to  sweets.name, cosmetics.id to cosmetics.name, diary.id to diary.name)
+        val getGroupCount = model.getGroups()
+        assertRight(groupsMap, getGroupCount)
     }
 
     @Test

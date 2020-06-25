@@ -6,10 +6,7 @@ import io.ktor.client.call.receive
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.features.json.JsonFeature
 import io.ktor.client.features.json.serializer.KotlinxSerializer
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.put
+import io.ktor.client.request.*
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -24,6 +21,7 @@ import org.junit.jupiter.api.TestInstance
 import ua.edu.ukma.csa.Configuration.json
 import ua.edu.ukma.csa.api.*
 import ua.edu.ukma.csa.kotlinx.arrow.core.handleWithThrow
+import ua.edu.ukma.csa.kotlinx.org.junit.jupiter.api.assertRight
 import ua.edu.ukma.csa.model.Group
 import ua.edu.ukma.csa.model.GroupID
 import ua.edu.ukma.csa.model.Product
@@ -118,6 +116,37 @@ class APITest {
     }
 
     @Test
+    fun `DELETE good`() = runBlocking {
+        val product: Product = client.delete("$API_URL/api/good/${iceCream.id.id}") {
+            header("Authorization", "Bearer $token")
+            body = DeleteProductRequest(id = 3)
+        }
+        assertEquals(iceCream, product)
+        assertEquals(product.id, 3)
+
+        val notFound: HttpResponse = client.delete("$API_URL/api/good/0") {
+            header("Authorization", "Bearer $token")
+            header("Content-Type", ContentType.Application.Json)
+            body = DeleteProductRequest(id = 3)
+        }
+        assertEquals(404, notFound.status.value)
+
+        val unauthorized: HttpResponse = client.delete("$API_URL/api/good/invalid_id") {
+            header("Content-Type", ContentType.Application.Json)
+            body = DeleteProductRequest(id = 3)
+        }
+        assertEquals(401, unauthorized.status.value)
+        assertTrue(unauthorized.receive<RouteException>() is RouteException.Unauthorized)
+
+        val noContent: HttpResponse = client.delete("$API_URL/api/good/no_content") {
+            header("Authorization", "Bearer $token")
+            body = DeleteProductRequest(id = 3)
+        }
+        assertEquals(204, noContent.status.value)
+        assertTrue(noContent.receive<RouteException>() is RouteException.NoContent)
+    }
+
+    @Test
     fun `PUT good`() = runBlocking {
         val (product) = client.put<PushedGood>("$API_URL/api/good") {
             header("Authorization", "Bearer $token")
@@ -129,6 +158,7 @@ class APITest {
         assertEquals(product.count, 2)
         assertTrue(sweets.id in product.groups)
         assertTrue(healthcare.id in product.groups)
+
         val gotProduct: Product = client.get("$API_URL/api/good/${product.id.id}") {
             header("Authorization", "Bearer $token")
         }
@@ -166,11 +196,60 @@ class APITest {
         assertEquals(400, invalidRequest.status.value)
         assertTrue(invalidRequest.receive<RouteException>() is RouteException.UserRequest)
 
-        val unauthorized: HttpResponse = client.put("$API_URL/api/good") {
+        val unauthorized: HttpResponse = client.put("$API_URL/api/good/invalid_id") {
             header("Content-Type", ContentType.Application.Json)
             body = PutGoodRequest(name = "product", price = 12.2, count = 2)
         }
         assertEquals(401, unauthorized.status.value)
         assertTrue(unauthorized.receive<RouteException>() is RouteException.Unauthorized)
     }
+
+    @Test
+    fun `POST good`() = runBlocking {
+        val (product) = client.post<UpdateGood>("$API_URL/api/good") {
+            header("Authorization", "Bearer $token")
+            header("Content-Type", ContentType.Application.Json)
+            body = UpdateGoodRequest(id = 1, name = "product", price = 2.99, count = 5)
+        }
+        assertEquals(Unit, product)
+
+        val invalidCount: HttpResponse = client.post("$API_URL/api/good") {
+            header("Authorization", "Bearer $token")
+            header("Content-Type", ContentType.Application.Json)
+            body = UpdateGoodRequest(id = 1, name = "product", price = 2.99, count = 5)
+        }
+        assertEquals(409, invalidCount.status.value)
+        assertTrue(invalidCount.receive<RouteException>() is RouteException.Conflict)
+
+        val invalidPrice: HttpResponse = client.post("$API_URL/api/good") {
+            header("Authorization", "Bearer $token")
+            header("Content-Type", ContentType.Application.Json)
+            body = UpdateGoodRequest(id = 1, name = "product", price = 2.99, count = 5)
+        }
+        assertEquals(409, invalidPrice.status.value)
+        assertTrue(invalidPrice.receive<RouteException>() is RouteException.Conflict)
+
+        val notFound: HttpResponse = client.post("$API_URL/api/goodd") {
+            header("Authorization", "Bearer $token")
+            header("Content-Type", ContentType.Application.Json)
+            body = UpdateGoodRequest(id = 1, name = "product", price = 2.99, count = 5)
+        }
+        assertEquals(404, notFound.status.value)
+
+        val unauthorized: HttpResponse = client.post("$API_URL/api/good") {
+            header("Content-Type", ContentType.Application.Json)
+            body = UpdateGoodRequest(id = 1, name = "product", price = 2.99, count = 5)
+        }
+        assertEquals(401, unauthorized.status.value)
+        assertTrue(unauthorized.receive<RouteException>() is RouteException.Unauthorized)
+
+        val noContent: HttpResponse = client.delete("$API_URL/api/good/no_content") {
+            header("Authorization", "Bearer $token")
+            body = UpdateGoodRequest(id = 1, name = "product", price = 2.99, count = 5)
+        }
+        assertEquals(204, noContent.status.value)
+        assertTrue(noContent.receive<RouteException>() is RouteException.NoContent)
+    }
+
+
 }

@@ -289,6 +289,10 @@ class SQLiteModel(private val dbName: String) : ModelSource, Closeable {
         }
     }
 
+    /**
+     * Retrieve [group][Group] from model
+     * @return [Either] a [ModelException]in case operation cannot be fulfilled or a list of [Group]s otherwise
+     */
     override fun getGroups(): Either<ModelException, List<Group>> = withConnection { connection ->
         connection.createStatement().use { statement ->
             Right(statement.executeQuery("SELECT id, name FROM product_group")

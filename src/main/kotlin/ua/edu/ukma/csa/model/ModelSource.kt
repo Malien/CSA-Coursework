@@ -116,7 +116,10 @@ interface ModelSource {
      */
     fun addGroup(name: String): Either<ModelException, Group>
 
-    // TODO: Docs and tests
+    /**
+     * Retrieve [group][Group] from model
+     * @return [Either] a [ModelException]in case operation cannot be fulfilled or a list of [Group]s otherwise
+     */
     fun getGroups(): Either<ModelException, List<Group>>
 
     /**
