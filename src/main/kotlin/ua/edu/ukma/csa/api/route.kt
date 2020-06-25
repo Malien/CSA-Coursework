@@ -21,7 +21,11 @@ import ua.edu.ukma.csa.network.http.Router
 sealed class RouteInput
 
 @Serializable
-sealed class RouteResponse(@Required val ok: Boolean = true)
+sealed class RouteResponse(@Required val ok: Boolean = true) {
+
+    @Serializable
+    class Ok: RouteResponse(true)
+}
 
 @Serializable
 sealed class RouteException : RouteResponse(false) {
@@ -39,6 +43,10 @@ sealed class RouteException : RouteResponse(false) {
     data class ServerError(val message: String? = null) : RouteException()
 
     @Serializable
+    @SerialName("notFound")
+    data class NotFound(val message: String? = null): RouteException()
+
+    @Serializable
     @SerialName("unauthorized")
     data class Unauthorized(val message: String? = null) : RouteException()
 
@@ -47,7 +55,7 @@ sealed class RouteException : RouteResponse(false) {
     data class Conflict(val message: String? = null): RouteException()
 
     @Serializable
-    @SerialName("no content")
+    @SerialName("noContent")
     data class NoContent(val message: String? = null): RouteException()
 
     fun toHTTPResponse(): HTTPResponse {
@@ -58,7 +66,8 @@ sealed class RouteException : RouteResponse(false) {
             is ServerError -> HTTPResponse.serverError(string)
             is Unauthorized -> HTTPResponse.unauthorized(string)
             is Conflict -> HTTPResponse.conflict(string)
-            is NoContent->HTTPResponse.noContent(string)
+            is NoContent -> HTTPResponse.noContent(string)
+            is NotFound -> HTTPResponse.notFound(string)
         }
     }
 
@@ -89,6 +98,14 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
     }
     "/api/groups" {
         get(getGroups(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Authorization"))
+    }
+    "/api/group" {
+        put(putGroup(model, tokenSecret))
+        preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
+    }
+    "/api/group/:id" {
+        delete(deleteGroup(model, tokenSecret))
         preflightOptions(allowedHeaders = listOf("Authorization"))
     }
 }
@@ -151,3 +168,10 @@ data class ProductList(val products: List<Product>) : RouteResponse()
 // Get groups route types
 @Serializable
 data class GroupList(val groups: List<Group>): RouteResponse()
+
+// Put group route types
+@Serializable
+data class PutGroupRequest(val name: String) : RouteInput()
+
+@Serializable
+data class PushedGroup(val group: Group) : RouteResponse()
