@@ -24,7 +24,7 @@ sealed class RouteInput
 sealed class RouteResponse(@Required val ok: Boolean = true) {
 
     @Serializable
-    class Ok: RouteResponse(true)
+    class Ok : RouteResponse(true)
 }
 
 @Serializable
@@ -44,7 +44,7 @@ sealed class RouteException : RouteResponse(false) {
 
     @Serializable
     @SerialName("notFound")
-    data class NotFound(val message: String? = null): RouteException()
+    data class NotFound(val message: String? = null) : RouteException()
 
     @Serializable
     @SerialName("unauthorized")
@@ -56,7 +56,7 @@ sealed class RouteException : RouteResponse(false) {
 
     @Serializable
     @SerialName("noContent")
-    data class NoContent(val message: String? = null): RouteException()
+    data class NoContent(val message: String? = null) : RouteException()
 
     fun toHTTPResponse(): HTTPResponse {
         val string = json.stringify(serializer(), this)
@@ -105,7 +105,7 @@ fun routerOf(model: ModelSource, tokenSecret: String) = Router {
         preflightOptions(allowedHeaders = listOf("Authorization", "Content-Type"))
     }
     "/api/group/:id" {
-        delete(deleteGroup(model, tokenSecret))
+        delete(deleteGroup(model, tokenSecret))//done
         preflightOptions(allowedHeaders = listOf("Authorization"))
     }
 }
@@ -162,6 +162,10 @@ data class UpdateGoodRequest(
 @Serializable
 data class DeleteProductRequest(val id: Int) : RouteInput()
 
+//delete group route types
+@Serializable
+data class DeleteGroupRequest(val id: Int) : RouteInput()
+
 @Serializable
 data class UpdateGood(val product: Unit) : RouteResponse()
 
@@ -171,7 +175,7 @@ data class ProductList(val products: List<Product>) : RouteResponse()
 
 // Get groups route types
 @Serializable
-data class GroupList(val groups: List<Group>): RouteResponse()
+data class GroupList(val groups: List<Group>) : RouteResponse()
 
 // Put group route types
 @Serializable

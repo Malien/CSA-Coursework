@@ -47,10 +47,12 @@ class APITest {
     private lateinit var sweets: Group
     private lateinit var healthcare: Group
     private lateinit var dairy: Group
+    private lateinit var fruits: Group
 
     private lateinit var biscuit: Product
     private lateinit var conditioner: Product
     private lateinit var iceCream: Product
+    private lateinit var avocado: Product
 
     companion object {
         private const val PORT = 4499
@@ -74,9 +76,12 @@ class APITest {
         sweets = model.addGroup("Sweets").handleWithThrow()
         healthcare = model.addGroup("Healthcare").handleWithThrow()
         dairy = model.addGroup("Dairy").handleWithThrow()
+        fruits = model.addGroup("Dairy").handleWithThrow()
+
         biscuit = model.addProduct("Biscuit", 10, 12.49, setOf(sweets.id)).handleWithThrow()
         conditioner = model.addProduct("Conditioner", 20, 23.69, setOf(healthcare.id)).handleWithThrow()
         iceCream = model.addProduct("Ice Cream", 5, 15.99, setOf(sweets.id, dairy.id)).handleWithThrow()
+        avocado = model.addProduct("Avocado Xaos", 123, 32.59, setOf(fruits.id, dairy.id)).handleWithThrow()
 
         runBlocking {
             val response: AccessToken = client.post("$API_URL/login") {
@@ -288,6 +293,37 @@ class APITest {
         assertEquals(group.name, biscuit.name)
         assertEquals(409, existsWithName.status.value)
         assertTrue(existsWithName.receive<RouteException>() is RouteException.Unauthorized)
+    }
+
+    @Test
+    fun `DELETE group`() = runBlocking {
+        val group: Group = client.delete("$API_URL/api/group/${avocado.id.id}") {
+            header("Authorization", "Bearer $token")
+            body = DeleteGroupRequest(id = 4)
+        }
+        assertEquals(avocado, group)
+        assertEquals(group.id, 4)
+
+        val notFound: HttpResponse = client.delete("$API_URL/api/group/0") {
+            header("Authorization", "Bearer $token")
+            header("Content-Type", ContentType.Application.Json)
+            body = DeleteGroupRequest(id = 4)
+        }
+        assertEquals(404, notFound.status.value)
+
+        val unauthorized: HttpResponse = client.delete("$API_URL/api/group/invalid_id") {
+            header("Content-Type", ContentType.Application.Json)
+            body = DeleteGroupRequest(id = 4)
+        }
+        assertEquals(401, unauthorized.status.value)
+        assertTrue(unauthorized.receive<RouteException>() is RouteException.Unauthorized)
+
+        val noContent: HttpResponse = client.delete("$API_URL/api/group/no_content") {
+            header("Authorization", "Bearer $token")
+            body = DeleteGroupRequest(id = 4)
+        }
+        assertEquals(204, noContent.status.value)
+        assertTrue(noContent.receive<RouteException>() is RouteException.NoContent)
     }
 
 
